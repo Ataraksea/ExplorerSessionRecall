@@ -556,7 +556,7 @@ impl Host for WinHost {
 
 /// Start-at-sign-in registration for `exe` (or a port that reports why
 /// there is none), under the base name `name` (`None`: the production
-/// `ExplorerSessionRestore`; see `RuntimeOptions::startup_name`).
+/// `ExplorerSessionRecall`; see `RuntimeOptions::startup_name`).
 pub fn startup_port(exe: Option<PathBuf>, name: Option<&str>) -> Box<dyn Startup> {
     let exe = match exe.map(Ok).unwrap_or_else(std::env::current_exe) {
         Ok(exe) => exe,
@@ -790,7 +790,7 @@ pub fn create_engine_window() -> Result<HWND, ShellError> {
         CreateWindowExW(
             WS_EX_TOOLWINDOW,
             PCWSTR(class.as_ptr()),
-            w!("Explorer Session Restore"),
+            w!("Explorer Session Recall"),
             WS_POPUP,
             0,
             0,

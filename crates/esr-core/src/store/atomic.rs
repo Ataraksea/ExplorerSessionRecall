@@ -45,7 +45,7 @@
 use crate::engine::IoErrorKind;
 
 /// A target file and the temp file used to replace it, as names relative to
-/// the data directory (`%LOCALAPPDATA%\ExplorerSessionRestore`).
+/// the data directory (`%LOCALAPPDATA%\ExplorerSessionRecall`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct AtomicFile {
     /// The visible file that readers open.

@@ -11,7 +11,7 @@
   * asInvoker: never requests elevation (Req 10.2, 12.6).
 -->
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
-  <assemblyIdentity type="win32" name="ExplorerSessionRestore.esr" version="1.0.0.0"/>
+  <assemblyIdentity type="win32" name="ExplorerSessionRecall.esr" version="1.0.0.0"/>
   <dependency>
     <dependentAssembly>
       <assemblyIdentity

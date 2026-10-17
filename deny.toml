@@ -1,4 +1,4 @@
-﻿# cargo-deny configuration for Explorer Session Restore.
+﻿# cargo-deny configuration for Explorer Session Recall.
 #
 # Req 11.2: no session data may leave the computer, so no networking crate may
 # be linked. `[bans].allow` is an explicit allow-list: any crate that is not

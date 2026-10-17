@@ -182,7 +182,7 @@ pub struct RuntimeOptions {
     /// Executable registered for start at sign-in (`None`: this executable).
     pub exe_path: Option<PathBuf>,
     /// Base name of the start-at-sign-in registration that a Settings change
-    /// updates (`None`: the production `ExplorerSessionRestore`). Only set by
+    /// updates (`None`: the production `ExplorerSessionRecall`). Only set by
     /// tests ([`crate::dev_overrides`]).
     pub startup_name: Option<String>,
     pub strategies: Strategies,
@@ -220,7 +220,7 @@ impl Default for RuntimeOptions {
     }
 }
 
-/// Runs Explorer Session Restore on the calling thread (which becomes the
+/// Runs Explorer Session Recall on the calling thread (which becomes the
 /// Engine STA thread) until the Engine exits. Returns the process exit code.
 pub fn run(
     settings: Settings,

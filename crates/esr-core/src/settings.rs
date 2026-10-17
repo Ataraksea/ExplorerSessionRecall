@@ -6,7 +6,7 @@
 //!
 //! # File format
 //!
-//! The settings file (`%LOCALAPPDATA%\ExplorerSessionRestore\settings.ini`)
+//! The settings file (`%LOCALAPPDATA%\ExplorerSessionRecall\settings.ini`)
 //! is UTF-8 with LF line endings. [`Settings::serialize`] writes the
 //! canonical form:
 //!

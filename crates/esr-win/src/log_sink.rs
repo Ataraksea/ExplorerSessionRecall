@@ -3,7 +3,7 @@
 //! The Activity_Log ([`ACTIVITY_LOG_FILE_NAME`]) and the Previous_Log_File
 //! ([`PREVIOUS_LOG_FILE_NAME`]) live in the data directory shared with
 //! [`DurableFileStore`](crate::file_store::DurableFileStore), normally
-//! `%LOCALAPPDATA%\ExplorerSessionRestore`
+//! `%LOCALAPPDATA%\ExplorerSessionRecall`
 //! ([`default_data_dir`](crate::file_store::default_data_dir)). The path is
 //! injected into [`LogSink::open`] so tests never touch the real one. Both
 //! files inherit the directory's protected DACL (see `file_store`); if the

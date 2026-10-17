@@ -4,7 +4,7 @@
 //! # Mechanisms
 //!
 //! 1. **Logon task (preferred).** A Task Scheduler task registered through
-//!    `ITaskService` at `\ExplorerSessionRestore\<SID>`:
+//!    `ITaskService` at `\ExplorerSessionRecall\<SID>`:
 //!    - a logon trigger for the current user only (`ILogonTrigger::UserId` is
 //!      the user's SID), with no delay;
 //!    - principal `TASK_LOGON_INTERACTIVE_TOKEN`, run level
@@ -20,7 +20,7 @@
 //!
 //! 2. **Run key (fallback).** If the task cannot be registered (for example
 //!    Task Scheduler is blocked by policy or the service is stopped), the
-//!    value `ExplorerSessionRestore = "<exe>" --background` is written under
+//!    value `ExplorerSessionRecall = "<exe>" --background` is written under
 //!    `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`. Windows runs Run
 //!    entries late and throttled after sign-in, so the 10 s target of Req 1.1
 //!    may not be met; [`StartupRegistration::set_enabled`] reports
@@ -44,8 +44,8 @@
 //! root `\` depends on the root folder's security descriptor, which differs
 //! between Windows builds and can be tightened by policy (per-user apps such
 //! as OneDrive register `<Name>-<SID>` tasks in the root for this reason).
-//! Therefore, if creating or using `\ExplorerSessionRestore` fails, the task
-//! is registered in the root as `ExplorerSessionRestore <SID>` instead.
+//! Therefore, if creating or using `\ExplorerSessionRecall` fails, the task
+//! is registered in the root as `ExplorerSessionRecall <SID>` instead.
 //! [`StartupRegistration::task_path`] reports where it ended up. On the
 //! development machine (Windows 11, non-elevated token of an administrator,
 //! which carries the same rights as a standard user here) creating the folder
@@ -89,7 +89,7 @@ use windows::core::{BSTR, Error, HSTRING, Interface, Result};
 use crate::shell_util::StaGuard;
 
 /// Production base name: task folder, root-fallback task prefix, and Run value.
-pub const APP_STARTUP_NAME: &str = "ExplorerSessionRestore";
+pub const APP_STARTUP_NAME: &str = "ExplorerSessionRecall";
 /// Argument the logon task passes so a second instance only pings (design.md).
 pub const BACKGROUND_ARG: &str = "--background";
 /// `HKCU` subkey holding per-user Run entries.
@@ -309,7 +309,7 @@ impl StartupRegistration {
 
             let info = definition.RegistrationInfo()?;
             info.SetDescription(&BSTR::from(
-                "Starts Explorer Session Restore when you sign in.",
+                "Starts Explorer Session Recall when you sign in.",
             ))?;
 
             let principal = definition.Principal()?;
@@ -724,10 +724,10 @@ mod tests {
 
     #[test]
     fn quote_program_path_wraps_paths_with_spaces() {
-        let path = Path::new(r"C:\Users\A B\AppData\Local\Programs\ExplorerSessionRestore\esr.exe");
+        let path = Path::new(r"C:\Users\A B\AppData\Local\Programs\ExplorerSessionRecall\esr.exe");
         assert_eq!(
             quote_program_path(path).unwrap(),
-            r#""C:\Users\A B\AppData\Local\Programs\ExplorerSessionRestore\esr.exe""#
+            r#""C:\Users\A B\AppData\Local\Programs\ExplorerSessionRecall\esr.exe""#
         );
         assert_eq!(quote_program_path(Path::new(r"C:\esr.exe")).unwrap(), r#""C:\esr.exe""#);
     }
@@ -754,9 +754,9 @@ mod tests {
     #[test]
     fn production_config_names() {
         let config = StartupConfig::with_base_name(APP_STARTUP_NAME, "S-1-5-21-7", r"C:\esr.exe");
-        assert_eq!(config.folder_task_path(), r"\ExplorerSessionRestore\S-1-5-21-7");
-        assert_eq!(config.root_task_path(), r"\ExplorerSessionRestore S-1-5-21-7");
-        assert_eq!(config.run_value_name, "ExplorerSessionRestore");
+        assert_eq!(config.folder_task_path(), r"\ExplorerSessionRecall\S-1-5-21-7");
+        assert_eq!(config.root_task_path(), r"\ExplorerSessionRecall S-1-5-21-7");
+        assert_eq!(config.run_value_name, "ExplorerSessionRecall");
         assert_eq!(config.user_id, "S-1-5-21-7");
     }
 

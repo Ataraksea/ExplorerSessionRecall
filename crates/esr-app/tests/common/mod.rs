@@ -244,7 +244,7 @@ pub fn engine_windows() -> Vec<(HWND, u32)> {
     out
 }
 
-/// Fails if an Explorer Session Restore instance runs or holds the
+/// Fails if an Explorer Session Recall instance runs or holds the
 /// single-instance mutex (test copies take the real mutex).
 pub fn require_no_running_instance() -> Result<(), String> {
     let engines = engine_windows();
@@ -253,7 +253,7 @@ pub fn require_no_running_instance() -> Result<(), String> {
             .iter()
             .map(|(_, pid)| format!("pid {pid} ({:?})", process_image(*pid)))
             .collect();
-        return Err(format!("an Explorer Session Restore instance is running: {}", list.join(", ")));
+        return Err(format!("an Explorer Session Recall instance is running: {}", list.join(", ")));
     }
     let sid = instance::current_user_sid().map_err(|e| e.message())?;
     match instance::acquire_named(&instance::mutex_name(&sid), ["esr.exe", BACKGROUND_ARG])
@@ -262,7 +262,7 @@ pub fn require_no_running_instance() -> Result<(), String> {
         // Released at once.
         InstanceRole::Primary(_guard) => Ok(()),
         InstanceRole::Secondary { .. } => {
-            Err("the Explorer Session Restore mutex is held by another process".into())
+            Err("the Explorer Session Recall mutex is held by another process".into())
         }
     }
 }

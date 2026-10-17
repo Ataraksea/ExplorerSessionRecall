@@ -25,7 +25,7 @@
 //!
 //! Every checkbox toggle and the "ask again" button post
 //! `Event::SettingsChanged` immediately (Req 12.4); there is no OK/Apply
-//! step. "Exit Explorer Session Restore" posts `Event::ExitRequested`
+//! step. "Exit Explorer Session Recall" posts `Event::ExitRequested`
 //! (Req 12.5) and closes the dialog. The UI thread keeps at most one Settings
 //! dialog and brings an open one to the foreground (Req 12.7).
 
@@ -66,17 +66,17 @@ pub const IDC_START_AT_SIGN_IN: u16 = 1002;
 pub const IDC_PROMPT_STATUS: u16 = 1003;
 /// Re-enables the Builtin_Restore_Option prompt (Req 12.3).
 pub const IDC_ASK_AGAIN: u16 = 1004;
-/// "Exit Explorer Session Restore" (Req 12.5).
+/// "Exit Explorer Session Recall" (Req 12.5).
 pub const IDC_EXIT: u16 = 1005;
 /// "Open folders as tabs in my File Explorer window" (`tab_folding_enabled`).
 pub const IDC_TAB_FOLDING: u16 = 1006;
 
-pub const TITLE: &str = "Explorer Session Restore Settings";
+pub const TITLE: &str = "Explorer Session Recall Settings";
 pub const RESTORE_LABEL: &str = "&Restore my File Explorer session";
 pub const START_LABEL: &str = "&Start when I sign in";
 pub const FOLDING_LABEL: &str = "&Open folders as tabs in my File Explorer window";
 pub const ASK_AGAIN_LABEL: &str = "&Ask me about it again";
-pub const EXIT_LABEL: &str = "E&xit Explorer Session Restore";
+pub const EXIT_LABEL: &str = "E&xit Explorer Session Recall";
 pub const CLOSE_LABEL: &str = "Close";
 /// Status text while the prompt is declined (the ask-again button is enabled).
 pub const STATUS_DECLINED: &str = "You chose to keep Windows\u{2019} \u{201C}Restore previous folder windows \

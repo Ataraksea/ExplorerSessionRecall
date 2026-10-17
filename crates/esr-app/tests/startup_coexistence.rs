@@ -19,7 +19,7 @@
 //! **real logon task** for it with the product's own
 //! `esr_win::startup::StartupRegistration` (the code `--install` and the
 //! Settings dialog use), under the test base name `ESRTest_<pid>_<tag>`
-//! (task `\ESRTest_<pid>_<tag>\<SID>`; never `\ExplorerSessionRestore`).
+//! (task `\ESRTest_<pid>_<tag>\<SID>`; never `\ExplorerSessionRecall`).
 //! "Sign-in" is `schtasks /Run` of that task: Task Scheduler starts the
 //! task's action, `"<exe>" --background`, with the task's principal
 //! (interactive token, no elevation) in the user's session, exactly as the
@@ -53,11 +53,11 @@
 //!   programs already). Next to it, the test-only overrides file of
 //!   `esr_app::dev_overrides` (read by debug builds only) points the data
 //!   directory to `...\data` and the start-at-sign-in name to the test task,
-//!   so the real data directory `%LOCALAPPDATA%\ExplorerSessionRestore` and
+//!   so the real data directory `%LOCALAPPDATA%\ExplorerSessionRecall` and
 //!   the real registration are never touched. The tests refuse to run in
 //!   release builds, which ignore the file.
 //! * The copy takes the real single-instance mutex, as a real start does.
-//!   Each test therefore first checks that no Explorer Session Restore
+//!   Each test therefore first checks that no Explorer Session Recall
 //!   instance runs and that the mutex is free, and fails otherwise.
 //! * [`TestInstall`] stops every process running from the copy (`ESR_EXIT`,
 //!   then `TerminateProcess` of a process whose image is the copy),

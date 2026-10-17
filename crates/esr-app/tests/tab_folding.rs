@@ -20,7 +20,7 @@
 //!    repeated runs show Explorer the same folder paths, see the guard's
 //!    docs on the sync-status cache), and **skips** the test (a printed
 //!    reason, no failure) when an Explorer window is already open, when a
-//!    real Explorer Session Restore instance is running, or when there is no
+//!    real Explorer Session Recall instance is running, or when there is no
 //!    shell; windows that were open before are never touched;
 //! 2. opens one window on a temp folder: the Primary_Window. It exists
 //!    before the runtime starts, so it is never a candidate itself;
@@ -558,7 +558,7 @@ impl Harness {
         let others: Vec<u32> =
             engine_windows().into_iter().map(|(_, p)| p).filter(|&p| p != std::process::id()).collect();
         if !others.is_empty() {
-            return Started::Skipped(format!("an Explorer Session Restore instance is running (pid {others:?})"));
+            return Started::Skipped(format!("an Explorer Session Recall instance is running (pid {others:?})"));
         }
         // SAFETY: plain read.
         if unsafe { GetShellWindow() }.is_invalid() {

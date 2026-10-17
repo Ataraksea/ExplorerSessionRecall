@@ -2,7 +2,7 @@
 //! (Requirements 1.4, 12.7).
 //!
 //! * The first instance creates the named mutex
-//!   `Local\ExplorerSessionRestore.<user SID>` and keeps the returned
+//!   `Local\ExplorerSessionRecall.<user SID>` and keeps the returned
 //!   [`InstanceGuard`] alive for the whole process lifetime (bind it in `main`
 //!   and never drop it early). The kernel closes the handle when the process
 //!   ends, including on abort, so a crashed instance never blocks the next one.
@@ -45,7 +45,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use windows::core::{HSTRING, PCWSTR, PWSTR};
 
 /// Prefix of the per-user mutex name; the user's SID string follows.
-pub const MUTEX_PREFIX: &str = r"Local\ExplorerSessionRestore.";
+pub const MUTEX_PREFIX: &str = r"Local\ExplorerSessionRecall.";
 /// Window class of the first instance's hidden top-level Engine window.
 pub const ENGINE_WINDOW_CLASS: &str = "ESR.Engine";
 /// Registered message name: "open Settings or bring it to the foreground".
@@ -137,6 +137,15 @@ pub fn mutex_name(sid: &str) -> String {
     format!("{MUTEX_PREFIX}{sid}")
 }
 
+/// Mutex prefix of the old "Explorer Session Restore" builds (v0.1). Only
+/// `--install` uses it, to stop a running old instance before migrating.
+pub const LEGACY_MUTEX_PREFIX: &str = r"Local\ExplorerSessionRestore.";
+
+/// The old (v0.1) per-user mutex name for `sid`.
+pub fn legacy_mutex_name(sid: &str) -> String {
+    format!("{LEGACY_MUTEX_PREFIX}{sid}")
+}
+
 /// Handle to the single-instance mutex. Holding it marks this process as the
 /// first instance; it must live for the whole process lifetime. Dropping it
 /// closes the handle (the mutex disappears once no process holds it).
@@ -166,7 +175,7 @@ pub enum InstanceRole {
     Secondary { action: SecondaryAction },
 }
 
-/// Acquires the per-user mutex `Local\ExplorerSessionRestore.<SID>`.
+/// Acquires the per-user mutex `Local\ExplorerSessionRecall.<SID>`.
 pub fn acquire<I, S>(args: I) -> windows::core::Result<InstanceRole>
 where
     I: IntoIterator<Item = S>,
@@ -439,6 +448,10 @@ mod tests {
         assert_eq!(SecondaryAction::Exit.message_name(), "ESR_EXIT");
         assert_eq!(
             mutex_name("S-1-5-21-1-2-3-1001"),
+            r"Local\ExplorerSessionRecall.S-1-5-21-1-2-3-1001"
+        );
+        assert_eq!(
+            legacy_mutex_name("S-1-5-21-1-2-3-1001"),
             r"Local\ExplorerSessionRestore.S-1-5-21-1-2-3-1001"
         );
     }

@@ -21,7 +21,7 @@ use esr_core::settings::Settings;
 use esr_sim::explorer::{Op, Pick, SimConfig, SimExplorer, Shown, default_displays};
 use esr_sim::restore::{CommandKind, Driver, Launch, Stop, home_location};
 
-const DIR: &str = r"C:\Users\User\AppData\Local\ExplorerSessionRestore\deferred";
+const DIR: &str = r"C:\Users\User\AppData\Local\ExplorerSessionRecall\deferred";
 
 fn folder(w: u32, i: usize) -> LocationId {
     LocationId {

@@ -5,11 +5,12 @@
 //!
 //! | Item | Location |
 //! |---|---|
-//! | Program | `%LOCALAPPDATA%\Programs\ExplorerSessionRestore\esr.exe` |
-//! | Start-menu shortcut | `<per-user Start menu>\Programs\Explorer Session Restore.lnk`, carrying `System.AppUserModel.ID =` [`AUMID`] (needed for toasts) |
-//! | Start at sign-in | logon task `\ExplorerSessionRestore\<SID>` (or the root / Run-key fallbacks of `esr_win::startup`) |
+//! | Program | `%LOCALAPPDATA%\Programs\ExplorerSessionRecall\esr.exe` |
+//! | Start-menu shortcut | `<per-user Start menu>\Programs\Explorer Session Recall.lnk`, carrying `System.AppUserModel.ID =` [`AUMID`] (needed for toasts) |
+//! | Start at sign-in | logon task `\ExplorerSessionRecall\<SID>` (or the root / Run-key fallbacks of `esr_win::startup`) |
 //! | Uninstall entry | `HKCU\`[`UNINSTALL_SUBKEY`] |
-//! | Data (uninstall only) | Session_File, its backup, settings, Activity_Log, Previous_Log_File, their temp files, and the placeholders of deferred tabs (`deferred\<n>\*.library-ms`) in `%LOCALAPPDATA%\ExplorerSessionRestore` |
+//! | Data (uninstall only) | Session_File, its backup, settings, Activity_Log, Previous_Log_File, their temp files, and the placeholders of deferred tabs (`deferred\<n>\*.library-ms`) in `%LOCALAPPDATA%\ExplorerSessionRecall` |
+//! | Old build (install only) | The v0.1 "Explorer Session Restore" items: its logon task / Run value `ExplorerSessionRestore`, `Explorer Session Restore.lnk`, `HKCU\...\Uninstall\ExplorerSessionRestore`, and `%LOCALAPPDATA%\Programs\ExplorerSessionRestore\esr.exe` are removed; its data folder `%LOCALAPPDATA%\ExplorerSessionRestore` is moved to the new data folder |
 //!
 //! Everything is under the user's profile or `HKCU`, so no administrator
 //! rights or UAC prompt are needed (Req 1.8).
@@ -39,7 +40,24 @@
 //! running instance handles the message like Exit in Settings, so every
 //! Explorer window stays open (Req 12.6) and its final Session_File write is
 //! finished before the files are deleted. If it does not stop in time, the
-//! command is cancelled without changing anything.
+//! command is cancelled without changing anything. The exit message is sent
+//! again about every second while waiting, in case it reached another
+//! `ESR.Engine` window (an old build's) first.
+//!
+//! # Migrating from the old build
+//!
+//! The product was called "Explorer Session Restore" in v0.1 (see
+//! [`LegacyLayout`]). `--install` then also stops a running old instance
+//! (same `ESR.Engine` window and `ESR_EXIT` message, old mutex
+//! [`LEGACY_MUTEX_PREFIX`](crate::instance::LEGACY_MUTEX_PREFIX)); that step
+//! is fatal, so data is never moved while the old app could still write it.
+//! It then removes the old registration, shortcut, Installed-apps entry and
+//! program, and renames the old data folder to the new one
+//! ([`migrate_data_dir`]) if the new one does not exist yet. A rename on the
+//! same volume keeps the protected DACL and the deferred-tab placeholders.
+//! Every migration step except the stop is best effort: a failure is
+//! reported but never cancels the install, and the old data is never deleted
+//! (if the rename fails, it stays where it was).
 //!
 //! # Removing the program itself
 //!
@@ -103,27 +121,41 @@ use crate::instance::{
 use crate::runtime::PLACEHOLDER_SUBDIR;
 
 /// Product name shown in the Start menu and in Installed apps.
-pub const PRODUCT_NAME: &str = "Explorer Session Restore";
+pub const PRODUCT_NAME: &str = "Explorer Session Recall";
 /// Install directory name under `%LOCALAPPDATA%\Programs`.
-pub const INSTALL_DIR_NAME: &str = "ExplorerSessionRestore";
+pub const INSTALL_DIR_NAME: &str = "ExplorerSessionRecall";
 /// File name of the installed program.
 pub const EXE_NAME: &str = "esr.exe";
 /// File name of the per-user Start-menu shortcut.
-pub const SHORTCUT_FILE_NAME: &str = "Explorer Session Restore.lnk";
+pub const SHORTCUT_FILE_NAME: &str = "Explorer Session Recall.lnk";
 /// `HKCU` subkey of the Installed-apps (Add/Remove Programs) entry.
 pub const UNINSTALL_SUBKEY: &str =
-    r"Software\Microsoft\Windows\CurrentVersion\Uninstall\ExplorerSessionRestore";
+    r"Software\Microsoft\Windows\CurrentVersion\Uninstall\ExplorerSessionRecall";
 /// Parent of [`UNINSTALL_SUBKEY`].
 pub const UNINSTALL_PARENT_SUBKEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall";
 /// Prefix of the `%TEMP%` folder holding the self-deleting copy.
 pub const HANDOFF_DIR_PREFIX: &str = "ESR-uninstall-";
+/// Name of the old (v0.1) build: its install-dir name, data-dir name,
+/// start-at-sign-in base name, and Uninstall subkey leaf.
+pub const LEGACY_NAME: &str = "ExplorerSessionRestore";
+/// File name of the old (v0.1) Start-menu shortcut.
+pub const LEGACY_SHORTCUT_FILE_NAME: &str = "Explorer Session Restore.lnk";
 
 pub const INSTALL_FLAG: &str = "--install";
 pub const UNINSTALL_FLAG: &str = "--uninstall";
 /// Internal: run by the `%TEMP%` copy, followed by the original's PID.
 pub const FINISH_UNINSTALL_FLAG: &str = "--uninstall-finish";
-/// No message box at the end (used by `QuietUninstallString`).
+/// No message box at the end (used by `QuietUninstallString` and by Setup).
+/// `--install` still shows a message box when something failed, so the
+/// failed steps are never hidden.
 pub const QUIET_FLAG: &str = "--quiet";
+
+/// Exit code: a fatal step failed and the command was cancelled, or it could
+/// not start at all.
+pub const EXIT_FAILED: i32 = 1;
+/// Exit code: the command finished, but a best-effort step failed. (`2` is
+/// the unsupported-build exit code of `main`.)
+pub const EXIT_COMPLETED_WITH_WARNINGS: i32 = 3;
 
 /// How long to wait for a running instance to exit (Req 12.5 allows it 5 s).
 pub const STOP_TIMEOUT: Duration = Duration::from_secs(10);
@@ -162,7 +194,8 @@ pub enum Command {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Invocation {
     pub command: Command,
-    /// [`QUIET_FLAG`] was given: no message box at the end.
+    /// [`QUIET_FLAG`] was given: no message box at the end (except for a
+    /// failed `--install`).
     pub quiet: bool,
 }
 
@@ -196,9 +229,9 @@ impl Invocation {
 /// touch the real profile.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Layout {
-    /// `%LOCALAPPDATA%\Programs\ExplorerSessionRestore`.
+    /// `%LOCALAPPDATA%\Programs\ExplorerSessionRecall`.
     pub install_dir: PathBuf,
-    /// `%LOCALAPPDATA%\ExplorerSessionRestore` (Session_File, settings, logs).
+    /// `%LOCALAPPDATA%\ExplorerSessionRecall` (Session_File, settings, logs).
     pub data_dir: PathBuf,
     /// The Start-menu shortcut file.
     pub shortcut: PathBuf,
@@ -214,6 +247,24 @@ pub struct Layout {
     /// deleted with them. Empty, except for the test overrides file of
     /// debug builds ([`Layout::with_overrides`]).
     pub carried_files: Vec<String>,
+    /// Where the old (v0.1) build lives, for migration by `--install`.
+    /// `None` with test overrides, so tests never touch a real installation.
+    pub legacy: Option<LegacyLayout>,
+}
+
+/// The locations of the old (v0.1) "Explorer Session Restore" build.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LegacyLayout {
+    /// `%LOCALAPPDATA%\Programs\ExplorerSessionRestore`.
+    pub install_dir: PathBuf,
+    /// `%LOCALAPPDATA%\ExplorerSessionRestore`.
+    pub data_dir: PathBuf,
+    /// `<Start menu>\Programs\Explorer Session Restore.lnk`.
+    pub shortcut: PathBuf,
+    /// Its Uninstall entry subkey under `HKCU`.
+    pub uninstall_key: String,
+    /// Its start-at-sign-in base name.
+    pub startup_name: String,
 }
 
 impl Layout {
@@ -228,6 +279,13 @@ impl Layout {
             temp_dir: temp_dir.to_owned(),
             startup_name: APP_STARTUP_NAME.to_owned(),
             carried_files: Vec::new(),
+            legacy: Some(LegacyLayout {
+                install_dir: local_app_data.join("Programs").join(LEGACY_NAME),
+                data_dir: local_app_data.join(LEGACY_NAME),
+                shortcut: start_menu_programs.join(LEGACY_SHORTCUT_FILE_NAME),
+                uninstall_key: format!(r"{UNINSTALL_PARENT_SUBKEY}\{LEGACY_NAME}"),
+                startup_name: LEGACY_NAME.to_owned(),
+            }),
         }
     }
 
@@ -274,6 +332,7 @@ impl Layout {
         self.uninstall_key = format!(r"{UNINSTALL_PARENT_SUBKEY}\{name}");
         self.startup_name = name.clone();
         self.carried_files = vec![dev_overrides::FILE_NAME.to_owned()];
+        self.legacy = None;
         Ok(self)
     }
 
@@ -373,6 +432,11 @@ pub struct ShortcutSpec {
 pub enum Step {
     /// Make sure no other instance runs (see the module documentation).
     StopRunningInstance,
+    /// Make sure no old (v0.1) instance runs (its mutex is free).
+    StopLegacyInstance,
+    /// Move the old data folder `from` to `to` unless `to` exists
+    /// ([`migrate_data_dir`]).
+    MigrateData { from: PathBuf, to: PathBuf },
     /// Copy the program, or a file that travels with it
     /// ([`Layout::carried_files`]), creating the target directory.
     CopyExe { from: PathBuf, to: PathBuf },
@@ -408,18 +472,22 @@ impl Step {
     /// A failing fatal step cancels the rest of the plan: nothing after it
     /// can work (or would be safe) without it.
     pub fn is_fatal(&self) -> bool {
-        matches!(self, Step::StopRunningInstance | Step::CopyExe { .. })
+        matches!(self, Step::StopRunningInstance | Step::StopLegacyInstance | Step::CopyExe { .. })
     }
 
     /// Short description for the result message.
     pub fn describe(&self) -> String {
         match self {
-            Step::StopRunningInstance => "Stop the running Explorer Session Restore".into(),
+            Step::StopRunningInstance => "Stop the running Explorer Session Recall".into(),
+            Step::StopLegacyInstance => "Stop the old Explorer Session Restore".into(),
+            Step::MigrateData { from, to } => {
+                format!("Move your saved session from {} to {}", from.display(), to.display())
+            }
             Step::CopyExe { to, .. } => format!("Copy the program to {}", to.display()),
             Step::CreateShortcut(s) => format!("Create the Start menu shortcut {}", s.path.display()),
             Step::RegisterStartup { .. } => "Register start at sign-in".into(),
             Step::WriteUninstallEntry { .. } => "Add the Installed apps entry".into(),
-            Step::StartInstalled { .. } => "Start Explorer Session Restore".into(),
+            Step::StartInstalled { .. } => "Start Explorer Session Recall".into(),
             Step::UnregisterStartup { .. } => "Remove start at sign-in".into(),
             Step::RemoveFile(p) => format!("Delete {}", p.display()),
             Step::RemovePlaceholders(p) => format!("Delete the placeholders in {}", p.display()),
@@ -473,12 +541,26 @@ pub fn uninstall_values(
     ])
 }
 
-/// `--install`: stop a running instance, copy the program (unless it already
-/// runs from the install location), create the shortcut, start at sign-in,
-/// and the uninstall entry, then start the installed copy.
+/// `--install`: stop a running instance, migrate the old (v0.1) build if
+/// [`Layout::legacy`] is set, copy the program (unless it already runs from
+/// the install location), create the shortcut, start at sign-in, and the
+/// uninstall entry, then start the installed copy.
 pub fn install_plan(layout: &Layout, inputs: &InstallInputs) -> Result<Vec<Step>, String> {
     let exe = layout.installed_exe();
     let mut plan = vec![Step::StopRunningInstance];
+    if let Some(legacy) = &layout.legacy {
+        let legacy_exe = legacy.install_dir.join(EXE_NAME);
+        plan.push(Step::StopLegacyInstance);
+        plan.push(Step::UnregisterStartup { exe: legacy_exe.clone(), name: legacy.startup_name.clone() });
+        plan.push(Step::RemoveFile(legacy.shortcut.clone()));
+        plan.push(Step::RemoveRegistryKey(legacy.uninstall_key.clone()));
+        plan.push(Step::MigrateData { from: legacy.data_dir.clone(), to: layout.data_dir.clone() });
+        // A running image cannot be deleted (only if started from there).
+        if !same_path(&inputs.current_exe, &legacy_exe) {
+            plan.push(Step::RemoveFile(legacy_exe));
+            plan.push(Step::RemoveDirIfEmpty(legacy.install_dir.clone()));
+        }
+    }
     if !same_path(&inputs.current_exe, &exe) {
         plan.push(Step::CopyExe { from: inputs.current_exe.clone(), to: exe.clone() });
         plan.extend(layout.carried_files.iter().map(|name| Step::CopyExe {
@@ -587,6 +669,18 @@ impl Outcome {
     pub fn succeeded(&self) -> bool {
         self.failures.is_empty()
     }
+
+    /// The process exit code: 0 on success, [`EXIT_FAILED`] if cancelled,
+    /// [`EXIT_COMPLETED_WITH_WARNINGS`] if only best-effort steps failed.
+    pub fn exit_code(&self) -> i32 {
+        if self.succeeded() {
+            0
+        } else if self.cancelled {
+            EXIT_FAILED
+        } else {
+            EXIT_COMPLETED_WITH_WARNINGS
+        }
+    }
 }
 
 /// Runs `plan` in order with `run_step`. A failing fatal step stops the plan;
@@ -614,8 +708,13 @@ pub struct System {
     guard: Option<InstanceGuard>,
     /// Name of the single-instance mutex.
     mutex_name: String,
+    /// Name of the old (v0.1) build's single-instance mutex.
+    legacy_mutex_name: String,
     stop_timeout: Duration,
 }
+
+/// How often the exit message is sent again while waiting for an instance to stop.
+const RESIGNAL_INTERVAL: Duration = Duration::from_secs(1);
 
 impl System {
     /// `role` is this process's single-instance role: `Primary` means no
@@ -625,16 +724,31 @@ impl System {
             InstanceRole::Primary(guard) => Some(guard),
             InstanceRole::Secondary { .. } => None,
         };
+        let sid = instance::current_user_sid()?;
         Ok(Self {
             guard,
-            mutex_name: instance::mutex_name(&instance::current_user_sid()?),
+            mutex_name: instance::mutex_name(&sid),
+            legacy_mutex_name: instance::legacy_mutex_name(&sid),
             stop_timeout: STOP_TIMEOUT,
         })
     }
 
     pub fn run_step(&mut self, step: &Step) -> Result<(), String> {
         match step {
-            Step::StopRunningInstance => self.stop_running_instance(),
+            Step::StopRunningInstance => {
+                if self.guard.is_some() {
+                    return Ok(());
+                }
+                let name = self.mutex_name.clone();
+                self.guard = Some(self.stop_instance(&name, PRODUCT_NAME)?);
+                Ok(())
+            }
+            Step::StopLegacyInstance => {
+                // Only needed until the old instance is gone; dropped at once.
+                let name = self.legacy_mutex_name.clone();
+                self.stop_instance(&name, "Explorer Session Restore").map(drop)
+            }
+            Step::MigrateData { from, to } => migrate_data_dir(from, to).map(|_| ()).map_err(|e| e.to_string()),
             Step::CopyExe { from, to } => copy_exe(from, to).map_err(|e| e.to_string()),
             Step::CreateShortcut(spec) => create_shortcut(spec).map_err(|e| e.message()),
             Step::RegisterStartup { exe, enabled, name } => {
@@ -665,36 +779,35 @@ impl System {
         }
     }
 
-    /// Ask a running instance to exit and wait until this process holds the
-    /// single-instance mutex (see the module documentation).
-    fn stop_running_instance(&mut self) -> Result<(), String> {
-        if self.guard.is_some() {
-            return Ok(());
-        }
+    /// Ask the instance holding the mutex `mutex_name` to exit and wait until
+    /// this process can take that mutex; returns the guard (see the module
+    /// documentation). `product` names the instance in the timeout error.
+    fn stop_instance(&self, mutex_name: &str, product: &str) -> Result<InstanceGuard, String> {
         let deadline = Instant::now() + self.stop_timeout;
-        let mut signalled = false;
+        let mut last_signal: Option<Instant> = None;
         let mut find_budget = instance::FIND_WINDOW_BUDGET;
         loop {
-            match instance::acquire_named(&self.mutex_name, [UNINSTALL_FLAG]) {
-                Ok(InstanceRole::Primary(guard)) => {
-                    self.guard = Some(guard);
-                    return Ok(());
-                }
+            match instance::acquire_named(mutex_name, [UNINSTALL_FLAG]) {
+                Ok(InstanceRole::Primary(guard)) => return Ok(guard),
                 Ok(InstanceRole::Secondary { .. }) => {}
                 Err(e) => return Err(e.message()),
             }
             if Instant::now() >= deadline {
                 return Err(format!(
-                    "Explorer Session Restore is still running after {} seconds. Exit it from \
-                     its Settings and try again.",
+                    "{product} is still running after {} seconds. Exit it from its Settings \
+                     and try again.",
                     self.stop_timeout.as_secs()
                 ));
             }
-            if !signalled {
+            // Signal again about every second: the message may have reached
+            // another `ESR.Engine` window (an old build's) first.
+            if last_signal.is_none_or(|t| t.elapsed() >= RESIGNAL_INTERVAL) {
                 // The instance may still be starting: keep looking briefly.
                 let outcome =
                     instance::signal_window_class(ENGINE_WINDOW_CLASS, SecondaryAction::Exit, find_budget);
-                signalled = matches!(outcome, SignalOutcome::Delivered { .. });
+                if matches!(outcome, SignalOutcome::Delivered { .. }) {
+                    last_signal = Some(Instant::now());
+                }
                 find_budget = POLL;
             }
             thread::sleep(POLL);
@@ -750,12 +863,40 @@ pub fn remove_placeholders(dir: &Path) -> io::Result<()> {
         None => remove_dir_if_empty(dir),
     }
 }
-/// Copy `from` to `to`, creating `to`'s directory.
+/// Copy `from` to `to`, creating `to`'s directory. A target that is still
+/// in use (the program that just exited) is retried briefly.
 pub fn copy_exe(from: &Path, to: &Path) -> io::Result<()> {
     if let Some(dir) = to.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    std::fs::copy(from, to).map(|_| ())
+    let deadline = Instant::now() + REMOVE_RETRY_BUDGET;
+    loop {
+        match std::fs::copy(from, to) {
+            Ok(_) => return Ok(()),
+            Err(e) if e.kind() == io::ErrorKind::PermissionDenied || e.raw_os_error() == Some(32) => {
+                if Instant::now() >= deadline {
+                    return Err(e);
+                }
+                thread::sleep(POLL);
+            }
+            Err(e) => return Err(e),
+        }
+    }
+}
+
+/// Move the old data folder `from` to `to` ([`Step::MigrateData`]) with one
+/// rename, which keeps the folder's protected DACL and everything in it.
+/// Nothing is done (`Ok(false)`) if `to` already exists or `from` is not a
+/// folder. On failure nothing was moved and `from` is left as it was.
+pub fn migrate_data_dir(from: &Path, to: &Path) -> io::Result<bool> {
+    if to.exists() || !from.is_dir() {
+        return Ok(false);
+    }
+    if let Some(parent) = to.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::rename(from, to)?;
+    Ok(true)
 }
 
 /// Delete `path`; missing is success. A file that is still in use (the
@@ -993,28 +1134,32 @@ pub fn create_shortcut(spec: &ShortcutSpec) -> windows::core::Result<()> {
 // Entry point
 // ---------------------------------------------------------------------------
 
-/// Runs `invocation` and returns the process exit code (0 on success).
+/// Runs `invocation` and returns the process exit code ([`Outcome::exit_code`]).
 /// `role` is this process's single-instance role.
 pub fn run(invocation: Invocation, role: InstanceRole) -> i32 {
     let current_exe = match std::env::current_exe() {
         Ok(p) => p,
         Err(e) => {
             report(invocation, &format!("Couldn't find the program file: {e}"), true);
-            return 1;
+            return EXIT_FAILED;
         }
     };
     let layout = match Layout::for_exe(&current_exe) {
         Ok(layout) => layout,
         Err(e) => {
             report(invocation, &e, true);
-            return 1;
+            return EXIT_FAILED;
         }
     };
 
     let plan = match invocation.command {
         Command::Install => {
             let exe_size = std::fs::metadata(&current_exe).map(|m| m.len()).unwrap_or(0);
-            let settings = std::fs::read_to_string(layout.settings_file()).ok();
+            // An old (v0.1) user's settings count until they are migrated.
+            let settings = std::fs::read_to_string(layout.settings_file()).ok().or_else(|| {
+                let legacy = layout.legacy.as_ref()?;
+                std::fs::read_to_string(legacy.data_dir.join(SETTINGS_FILE.target)).ok()
+            });
             let inputs = InstallInputs {
                 current_exe: current_exe.clone(),
                 exe_size,
@@ -1025,7 +1170,7 @@ pub fn run(invocation: Invocation, role: InstanceRole) -> i32 {
                 Ok(plan) => plan,
                 Err(e) => {
                     report(invocation, &e, true);
-                    return 1;
+                    return EXIT_FAILED;
                 }
             }
         }
@@ -1038,7 +1183,7 @@ pub fn run(invocation: Invocation, role: InstanceRole) -> i32 {
             let plan = finish_plan(&layout, &current_exe);
             // Best effort and silent: the original already reported.
             let outcome = execute(&plan, run_finish_step);
-            return i32::from(!outcome.succeeded());
+            return outcome.exit_code();
         }
     };
 
@@ -1046,14 +1191,14 @@ pub fn run(invocation: Invocation, role: InstanceRole) -> i32 {
         Ok(system) => system,
         Err(e) => {
             report(invocation, &e.message(), true);
-            return 1;
+            return EXIT_FAILED;
         }
     };
     let outcome = execute(&plan, |step| system.run_step(step));
     drop(system);
     let (text, is_error) = outcome_text(invocation.command, &layout, &outcome);
     report(invocation, &text, is_error);
-    i32::from(!outcome.succeeded())
+    outcome.exit_code()
 }
 
 /// Finish steps never need the single-instance mutex or COM.
@@ -1096,11 +1241,33 @@ pub fn outcome_text(command: Command, layout: &Layout, outcome: &Outcome) -> (St
         .iter()
         .map(|f| format!("\u{2022} {}: {}", f.step.describe(), f.error.trim()))
         .collect();
-    (format!("{head}\n\n{}", details.join("\n")), true)
+    let mut text = format!("{head}\n\n{}", details.join("\n"));
+    // The old data was left in place; say where, so it can be moved by hand.
+    for failure in &outcome.failures {
+        if let Step::MigrateData { from, to } = &failure.step {
+            text.push_str(&format!(
+                "\n\nYour previous session and settings are still in {}. To keep them, exit \
+                 {PRODUCT_NAME} from its Settings, then copy {} and {} from that folder into {}, \
+                 replacing the files there.",
+                from.display(),
+                SESSION_FILE.target,
+                SETTINGS_FILE.target,
+                to.display()
+            ));
+        }
+    }
+    (text, true)
+}
+
+/// Whether the final message box is shown: always without [`QUIET_FLAG`];
+/// with it, only for a failed `--install` (Setup runs `--install --quiet` and
+/// relies on this message to name the failed steps).
+pub fn shows_report(invocation: Invocation, is_error: bool) -> bool {
+    !invocation.quiet || (is_error && invocation.command == Command::Install)
 }
 
 fn report(invocation: Invocation, text: &str, is_error: bool) {
-    if invocation.quiet {
+    if !shows_report(invocation, is_error) {
         return;
     }
     let icon = if is_error { MB_ICONWARNING } else { MB_ICONINFORMATION };
@@ -1203,13 +1370,13 @@ mod tests {
         let l = layout();
         assert_eq!(
             l.installed_exe(),
-            PathBuf::from(r"C:\Users\A B\AppData\Local\Programs\ExplorerSessionRestore\esr.exe")
+            PathBuf::from(r"C:\Users\A B\AppData\Local\Programs\ExplorerSessionRecall\esr.exe")
         );
-        assert_eq!(l.data_dir, PathBuf::from(r"C:\Users\A B\AppData\Local\ExplorerSessionRestore"));
-        assert!(l.shortcut.ends_with(r"Start Menu\Programs\Explorer Session Restore.lnk"));
+        assert_eq!(l.data_dir, PathBuf::from(r"C:\Users\A B\AppData\Local\ExplorerSessionRecall"));
+        assert!(l.shortcut.ends_with(r"Start Menu\Programs\Explorer Session Recall.lnk"));
         assert_eq!(
             l.uninstall_key,
-            r"Software\Microsoft\Windows\CurrentVersion\Uninstall\ExplorerSessionRestore"
+            r"Software\Microsoft\Windows\CurrentVersion\Uninstall\ExplorerSessionRecall"
         );
         let names: Vec<String> = l
             .data_files()
@@ -1248,7 +1415,8 @@ mod tests {
 
     #[test]
     fn install_plan_from_download_copies_and_registers_everything() {
-        let l = layout();
+        // Without the old build's steps (see `install_plan_migrates_the_old_build`).
+        let l = Layout { legacy: None, ..layout() };
         let plan = install_plan(&l, &inputs(r"C:\Users\A B\Downloads\esr.exe")).unwrap();
         let exe = l.installed_exe();
         assert_eq!(plan[0], Step::StopRunningInstance);
@@ -1259,10 +1427,10 @@ mod tests {
         let Step::CreateShortcut(shortcut) = &plan[2] else { panic!("{:?}", plan[2]) };
         assert_eq!(shortcut.path, l.shortcut);
         assert_eq!(shortcut.target, exe);
-        assert_eq!(shortcut.aumid, "ExplorerSessionRestore");
+        assert_eq!(shortcut.aumid, "ExplorerSessionRecall");
         assert_eq!(
             plan[3],
-            Step::RegisterStartup { exe: exe.clone(), enabled: true, name: "ExplorerSessionRestore".into() }
+            Step::RegisterStartup { exe: exe.clone(), enabled: true, name: "ExplorerSessionRecall".into() }
         );
         let Step::WriteUninstallEntry { key, values } = &plan[4] else { panic!("{:?}", plan[4]) };
         assert_eq!(key, UNINSTALL_SUBKEY);
@@ -1275,9 +1443,151 @@ mod tests {
     }
 
     #[test]
+    fn legacy_layout_names_the_old_build() {
+        let legacy = layout().legacy.expect("the real layout migrates the old build");
+        assert_eq!(
+            legacy.install_dir,
+            PathBuf::from(r"C:\Users\A B\AppData\Local\Programs\ExplorerSessionRestore")
+        );
+        assert_eq!(legacy.data_dir, PathBuf::from(r"C:\Users\A B\AppData\Local\ExplorerSessionRestore"));
+        assert!(legacy.shortcut.ends_with(r"Start Menu\Programs\Explorer Session Restore.lnk"));
+        assert_eq!(
+            legacy.uninstall_key,
+            r"Software\Microsoft\Windows\CurrentVersion\Uninstall\ExplorerSessionRestore"
+        );
+        assert_eq!(legacy.startup_name, "ExplorerSessionRestore");
+    }
+
+    #[test]
+    fn install_plan_migrates_the_old_build() {
+        let l = layout();
+        let legacy = l.legacy.clone().unwrap();
+        let old_exe = legacy.install_dir.join(EXE_NAME);
+        let plan = install_plan(&l, &inputs(r"C:\Users\A B\AppData\Local\Temp\is-X\esr.exe")).unwrap();
+        assert_eq!(
+            plan[..9],
+            [
+                Step::StopRunningInstance,
+                Step::StopLegacyInstance,
+                Step::UnregisterStartup { exe: old_exe.clone(), name: "ExplorerSessionRestore".into() },
+                Step::RemoveFile(legacy.shortcut.clone()),
+                Step::RemoveRegistryKey(legacy.uninstall_key.clone()),
+                Step::MigrateData { from: legacy.data_dir.clone(), to: l.data_dir.clone() },
+                Step::RemoveFile(old_exe),
+                Step::RemoveDirIfEmpty(legacy.install_dir.clone()),
+                Step::CopyExe {
+                    from: PathBuf::from(r"C:\Users\A B\AppData\Local\Temp\is-X\esr.exe"),
+                    to: l.installed_exe()
+                },
+            ]
+        );
+        // Data is never moved while the old app might still write it, and a
+        // failed migration never cancels the install.
+        assert!(Step::StopLegacyInstance.is_fatal());
+        assert!(!plan[5].is_fatal());
+        assert_eq!(plan.last(), Some(&Step::StartInstalled { exe: l.installed_exe() }));
+        // The old program is never deleted while it is the one running.
+        let plan = install_plan(&l, &inputs(&legacy.install_dir.join(EXE_NAME).to_string_lossy())).unwrap();
+        assert!(!plan.contains(&Step::RemoveFile(legacy.install_dir.join(EXE_NAME))));
+        assert!(plan.contains(&Step::MigrateData { from: legacy.data_dir.clone(), to: l.data_dir.clone() }));
+    }
+
+    #[test]
+    fn execute_cancels_the_install_when_the_old_build_does_not_stop() {
+        let l = layout();
+        let plan = install_plan(&l, &inputs(r"C:\Users\A B\Downloads\esr.exe")).unwrap();
+        let mut ran = Vec::new();
+        let outcome = execute(&plan, |step| {
+            ran.push(step.clone());
+            match step {
+                Step::StopLegacyInstance => Err("still running".into()),
+                _ => Ok(()),
+            }
+        });
+        assert_eq!(ran, vec![Step::StopRunningInstance, Step::StopLegacyInstance]);
+        assert!(outcome.cancelled);
+
+        // A failed migration is reported, and the install goes on.
+        let mut ran = 0;
+        let outcome = execute(&plan, |step| {
+            ran += 1;
+            match step {
+                Step::MigrateData { .. } => Err("denied".into()),
+                _ => Ok(()),
+            }
+        });
+        assert_eq!(ran, plan.len());
+        assert!(!outcome.cancelled);
+        assert_eq!(outcome.exit_code(), EXIT_COMPLETED_WITH_WARNINGS);
+        let (text, is_error) = outcome_text(Command::Install, &l, &outcome);
+        assert!(is_error && text.contains("Move your saved session"), "{text}");
+        assert!(text.contains("was installed, but some steps failed"), "{text}");
+        // The old folder is named so the session can be recovered by hand.
+        let legacy_dir = l.legacy.as_ref().unwrap().data_dir.display().to_string();
+        assert!(text.contains(&format!("still in {legacy_dir}.")), "{text}");
+        assert!(text.contains("session.esr") && text.contains("settings.ini"), "{text}");
+    }
+
+    #[test]
+    fn exit_codes_separate_failed_from_completed_with_warnings() {
+        let failure = |step: Step| Failure { step, error: "x".into() };
+        assert_eq!(Outcome::default().exit_code(), 0);
+        let warned = Outcome { failures: vec![failure(Step::RemoveFile("a".into()))], cancelled: false };
+        assert_eq!(warned.exit_code(), EXIT_COMPLETED_WITH_WARNINGS);
+        let cancelled = Outcome { failures: vec![failure(Step::StopRunningInstance)], cancelled: true };
+        assert_eq!(cancelled.exit_code(), EXIT_FAILED);
+        // Neither collides with success or main's unsupported-build code 2.
+        assert!(![0, 2].contains(&EXIT_FAILED) && ![0, 2].contains(&EXIT_COMPLETED_WITH_WARNINGS));
+        assert_ne!(EXIT_FAILED, EXIT_COMPLETED_WITH_WARNINGS);
+    }
+
+    #[test]
+    fn quiet_install_still_reports_failures() {
+        let inv = |command, quiet| Invocation { command, quiet };
+        // Not quiet: always shown.
+        assert!(shows_report(inv(Command::Install, false), false));
+        assert!(shows_report(inv(Command::Uninstall, false), true));
+        // Quiet install (Setup): only problems are shown.
+        assert!(!shows_report(inv(Command::Install, true), false));
+        assert!(shows_report(inv(Command::Install, true), true));
+        // Quiet uninstall stays silent (QuietUninstallString).
+        assert!(!shows_report(inv(Command::Uninstall, true), true));
+        assert!(!shows_report(inv(Command::FinishUninstall { parent_pid: None }, true), true));
+    }
+
+    #[test]
+    fn migrate_data_dir_moves_everything_once() {
+        let dir = TestDir::new("migrate");
+        let from = dir.0.join("ExplorerSessionRestore");
+        let to = dir.0.join("ExplorerSessionRecall");
+        // Missing source: nothing to do.
+        assert!(!migrate_data_dir(&from, &to).unwrap());
+        assert!(!to.exists());
+
+        std::fs::create_dir_all(from.join("deferred").join("1")).unwrap();
+        std::fs::write(from.join("session.esr"), b"session").unwrap();
+        std::fs::write(from.join("settings.ini"), b"settings").unwrap();
+        std::fs::write(from.join("activity.log"), b"log").unwrap();
+        std::fs::write(from.join("deferred").join("1").join("x.library-ms"), b"placeholder").unwrap();
+        assert!(migrate_data_dir(&from, &to).unwrap());
+        assert!(!from.exists());
+        assert_eq!(std::fs::read(to.join("session.esr")).unwrap(), b"session");
+        assert_eq!(std::fs::read(to.join("settings.ini")).unwrap(), b"settings");
+        assert_eq!(std::fs::read(to.join("activity.log")).unwrap(), b"log");
+        assert_eq!(std::fs::read(to.join("deferred").join("1").join("x.library-ms")).unwrap(), b"placeholder");
+
+        // The new folder exists: the old one is left alone.
+        std::fs::create_dir_all(&from).unwrap();
+        std::fs::write(from.join("session.esr"), b"old").unwrap();
+        assert!(!migrate_data_dir(&from, &to).unwrap());
+        assert_eq!(std::fs::read(from.join("session.esr")).unwrap(), b"old");
+        assert_eq!(std::fs::read(to.join("session.esr")).unwrap(), b"session");
+    }
+
+    #[test]
     fn reinstall_from_install_dir_skips_copy_and_keeps_disabled_startup() {
         let l = layout();
-        let mut i = inputs(r"c:\users\a b\appdata\local\programs\explorersessionrestore\ESR.EXE");
+        let mut i = inputs(r"c:\users\a b\appdata\local\programs\explorersessionrecall\ESR.EXE");
         i.start_at_sign_in = false;
         let plan = install_plan(&l, &i).unwrap();
         assert!(!plan.iter().any(|s| matches!(s, Step::CopyExe { .. })));
@@ -1307,7 +1617,7 @@ mod tests {
         let values = uninstall_values(&l, "1.2.3", 1025).unwrap();
         let get = |name: &str| values.iter().find(|(n, _)| n == name).map(|(_, v)| v.clone());
         let exe = l.installed_exe().display().to_string();
-        assert_eq!(get("DisplayName"), Some(RegValue::Sz("Explorer Session Restore".into())));
+        assert_eq!(get("DisplayName"), Some(RegValue::Sz("Explorer Session Recall".into())));
         assert_eq!(get("DisplayVersion"), Some(RegValue::Sz("1.2.3".into())));
         assert_eq!(get("DisplayIcon"), Some(RegValue::Sz(format!("{exe},0"))));
         assert_eq!(
@@ -1531,6 +1841,10 @@ mod tests {
         assert_eq!(l.startup_name, "ESRTest_1_smoke");
         assert_eq!(l.carried_files, vec![dev_overrides::FILE_NAME.to_owned()]);
         assert_eq!(l.temp_dir, layout().temp_dir);
+        // A test copy never migrates (or removes) the real old build.
+        assert_eq!(l.legacy, None);
+        let plan = install_plan(&l, &inputs(r"C:\T\src\esr.exe")).unwrap();
+        assert!(!plan.iter().any(|s| matches!(s, Step::StopLegacyInstance | Step::MigrateData { .. })));
         // A partial file (as task 16.6 writes) is refused, never mixed with
         // the real install locations.
         for drop in 0..4 {
@@ -1638,7 +1952,7 @@ mod tests {
     #[test]
     fn registry_entry_round_trip_on_test_key() {
         let root = format!(r"Software\ESRTest_{}_install", std::process::id());
-        let subkey = format!(r"{root}\Uninstall\ExplorerSessionRestore");
+        let subkey = format!(r"{root}\Uninstall\ExplorerSessionRecall");
         assert!(!subkey.contains(r"CurrentVersion\Uninstall"));
         let values = uninstall_values(&layout(), "0.1.0", 4096).unwrap();
 
@@ -1646,7 +1960,7 @@ mod tests {
             write_registry_values(&subkey, &values).unwrap();
             assert_eq!(
                 read_reg_sz(&subkey, "DisplayName").as_deref(),
-                Some("Explorer Session Restore")
+                Some("Explorer Session Recall")
             );
             assert_eq!(read_reg_dword(&subkey, "EstimatedSize"), Some(4));
             assert_eq!(read_reg_dword(&subkey, "NoModify"), Some(1));
@@ -1696,7 +2010,7 @@ mod tests {
             let aumid = s.to_string().unwrap();
             CoTaskMemFree(Some(s.0 as *const _));
             let _ = PropVariantClear(&mut value);
-            assert_eq!(aumid, "ExplorerSessionRestore");
+            assert_eq!(aumid, "ExplorerSessionRecall");
         }
     }
 

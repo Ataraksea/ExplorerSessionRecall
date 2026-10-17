@@ -29,7 +29,7 @@ pub const MIN_UBR: u32 = 675;
 pub const MINIMUM_VERSION_TEXT: &str = "Windows 11 version 22H2, build 22621.675 or later";
 
 /// Caption of the unsupported message box.
-const MESSAGE_CAPTION: &str = "Explorer Session Restore";
+const MESSAGE_CAPTION: &str = "Explorer Session Recall";
 
 /// OS version as read from `RtlGetVersion` and the `UBR` registry value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -69,7 +69,7 @@ pub fn is_supported(build: u32, ubr: Option<u32>) -> bool {
 /// Body of the unsupported message. Always names the minimum version and,
 /// when known, the detected build.
 pub fn unsupported_message(detected: Option<OsVersion>) -> String {
-    let mut text = format!("Explorer Session Restore requires {MINIMUM_VERSION_TEXT}.");
+    let mut text = format!("Explorer Session Recall requires {MINIMUM_VERSION_TEXT}.");
     match detected {
         Some(OsVersion { build, ubr: Some(ubr), .. }) => {
             text.push_str(&format!("\n\nThis PC is running build {build}.{ubr}."));

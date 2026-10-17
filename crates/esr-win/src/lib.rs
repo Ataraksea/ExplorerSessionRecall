@@ -1,4 +1,4 @@
-//! Windows adapters for Explorer Session Restore.
+//! Windows adapters for Explorer Session Recall.
 //!
 //! Each adapter turns Windows signals into `esr_core` events or carries out
 //! `esr_core` commands. The port traits they back live in `esr_app::ports`.

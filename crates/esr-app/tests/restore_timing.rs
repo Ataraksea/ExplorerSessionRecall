@@ -98,7 +98,7 @@
 //! * A restore needs the trigger to be the only Explorer window, so a test
 //!   is **skipped** (with a printed reason) when any Explorer window is open
 //!   before it starts; such windows are never touched. It is also skipped when
-//!   another process (a real Explorer Session Restore instance) owns an
+//!   another process (a real Explorer Session Recall instance) owns an
 //!   `ESR.Engine` window, because that instance would react to the test's
 //!   windows.
 //! * The runtime uses a temp data directory (deleted afterwards), no UI, the
@@ -1134,7 +1134,7 @@ fn execute(guard: &ExplorerGuard, data_dir: &Path, start: TriggerStart, specs: &
     let others: Vec<u32> =
         engine_windows().into_iter().map(|(_, p)| p).filter(|&p| p != std::process::id()).collect();
     if !others.is_empty() {
-        return skip(out, format!("an Explorer Session Restore instance is running (pid {others:?})"));
+        return skip(out, format!("an Explorer Session Recall instance is running (pid {others:?})"));
     }
     // SAFETY: plain read.
     if unsafe { GetShellWindow() }.is_invalid() {

@@ -1,0 +1,127 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (for example 1.0.0); must match Cargo.toml. Builds artifacts only, no release.'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned to the toolchain the release was developed and tested with.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.99.1'
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Determine version
+        id: version
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          } else {
+            $version = $env:INPUT_VERSION
+          }
+          $cargo = (Select-String -Path Cargo.toml -Pattern '^\s*version\s*=\s*"([^"]+)"' | Select-Object -First 1).Matches[0].Groups[1].Value
+          if ($version -ne $cargo) {
+            throw "Version '$version' does not match Cargo.toml version '$cargo'."
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Version $version"
+
+      # The #[ignore] integration tests drive real File Explorer windows and
+      # are skipped by default.
+      - name: Test
+        run: cargo test -p esr-core -p esr-sim
+
+      - name: Ensure Inno Setup 6
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+
+      - name: Build esr.exe and the installer
+        run: ./installer/build.ps1 -Version '${{ steps.version.outputs.version }}'
+
+      # --- SignPath code signing (disabled until the SignPath Foundation application is approved) ---
+      # When approved: create the SignPath project/artifact configuration, add the
+      # SIGNPATH_API_TOKEN secret, uncomment these steps, and attach the files from
+      # dist-signed/ instead of dist/ below (then regenerate SHA256SUMS.txt from them).
+      #
+      # - name: Upload unsigned artifacts for signing
+      #   id: upload-unsigned
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: unsigned
+      #     path: |
+      #       dist/ExplorerSessionRecall-Setup-${{ steps.version.outputs.version }}.exe
+      #       dist/esr-${{ steps.version.outputs.version }}-x64.exe
+      #
+      # - name: Sign with SignPath
+      #   uses: signpath/github-action-submit-signing-request@v1
+      #   with:
+      #     api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+      #     organization-id: '<SignPath organization id>'
+      #     project-slug: 'ExplorerSessionRecall'
+      #     signing-policy-slug: 'release-signing'
+      #     artifact-configuration-slug: '<artifact configuration slug>'
+      #     github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+      #     wait-for-completion: true
+      #     output-artifact-directory: 'dist-signed'
+      # --- end SignPath code signing ---
+
+      - name: Upload build artifacts (manual runs)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ExplorerSessionRecall-${{ steps.version.outputs.version }}
+          path: |
+            dist/ExplorerSessionRecall-Setup-${{ steps.version.outputs.version }}.exe
+            dist/esr-${{ steps.version.outputs.version }}-x64.exe
+            dist/SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Explorer Session Recall ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            dist/ExplorerSessionRecall-Setup-${{ steps.version.outputs.version }}.exe
+            dist/esr-${{ steps.version.outputs.version }}-x64.exe
+            dist/SHA256SUMS.txt
+          body: |
+            ## Install
+
+            Download **ExplorerSessionRecall-Setup-${{ steps.version.outputs.version }}.exe** below and run it. It installs for your user account only; no administrator rights are needed.
+
+            Releases are not code-signed yet, so Windows SmartScreen may warn you. Click **More info** and then **Run anyway**.
+
+            Requires Windows 11 22H2 (build 22621) or later, x64.
+
+            `esr-${{ steps.version.outputs.version }}-x64.exe` is the bare program (`esr.exe`) for people who prefer not to use an installer: run `esr-${{ steps.version.outputs.version }}-x64.exe --install` from a terminal.
+
+            Verify the downloads against `SHA256SUMS.txt` (`Get-FileHash <file>` in PowerShell).
+
+            Code signing policy: https://github.com/Ataraksea/ExplorerSessionRecall#code-signing-policy

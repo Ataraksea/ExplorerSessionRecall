@@ -1,6 +1,6 @@
 [package]
 name = "esr-app"
-description = "Explorer Session Restore executable (esr.exe): wiring, threads, UI, install/uninstall."
+description = "Explorer Session Recall executable (esr.exe): wiring, threads, UI, install/uninstall."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

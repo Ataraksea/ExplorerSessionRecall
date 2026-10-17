@@ -1,6 +1,6 @@
 [package]
 name = "esr-win"
-description = "Windows adapters for Explorer Session Restore (Shell COM, UIA, WinEvents, file system)."
+description = "Windows adapters for Explorer Session Recall (Shell COM, UIA, WinEvents, file system)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

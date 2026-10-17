@@ -1,4 +1,4 @@
-//! Explorer Session Restore application library: port traits, version gate,
+//! Explorer Session Recall application library: port traits, version gate,
 //! single instance, UI, install/uninstall, and runtime wiring.
 
 pub mod dev_overrides;

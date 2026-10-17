@@ -14,7 +14,7 @@
 //!   `ESR.Engine` window of *this* process (found by PID), never to a real
 //!   instance.
 //! * Single instance uses a unique test mutex, never
-//!   `Local\ExplorerSessionRestore.<SID>`.
+//!   `Local\ExplorerSessionRecall.<SID>`.
 //! * Every Explorer window is opened through `ExplorerGuard`, which closes it
 //!   again even on failure, and every test holds the guard's mutex.
 //! * Uninstall runs the real install and uninstall *plans* against temp roots
@@ -686,8 +686,11 @@ fn uninstall_removes_every_artifact_and_leaves_windows_open() {
         &root.join("Start Menu").join("Programs"),
         &root.join("Temp"),
     );
-    layout.uninstall_key = format!(r"{reg_root}\Uninstall\ExplorerSessionRestore");
+    layout.uninstall_key = format!(r"{reg_root}\Uninstall\ExplorerSessionRecall");
     assert!(!layout.uninstall_key.contains(r"CurrentVersion\Uninstall"));
+    // No legacy (v0.1) migration steps: they would name the real startup
+    // registration and Uninstall key of the old build.
+    layout.legacy = None;
     std::fs::create_dir_all(&layout.temp_dir).unwrap();
     let download = root.join("Downloads").join("esr.exe");
     std::fs::create_dir_all(download.parent().unwrap()).unwrap();

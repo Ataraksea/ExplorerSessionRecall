@@ -50,7 +50,7 @@ use windows::core::{HSTRING, Interface};
 
 /// AppUserModelID the toasts are shown under. The installer (task 14.5) must
 /// put exactly this value on the per-user Start-menu shortcut.
-pub const AUMID: &str = "ExplorerSessionRestore";
+pub const AUMID: &str = "ExplorerSessionRecall";
 
 /// Tag shared by every omitted-tab toast, so a new one replaces the old one.
 pub const TOAST_TAG: &str = "omitted-tabs";

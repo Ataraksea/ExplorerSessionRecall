@@ -26,9 +26,9 @@ pub fn message_text(kind: MessageKind) -> MessageText {
     match kind {
         MessageKind::BuiltinRestoreDisableFailed => MessageText {
             main: "Couldn\u{2019}t turn off Windows\u{2019} folder restore",
-            content: "Explorer Session Restore couldn\u{2019}t turn off Windows\u{2019} \u{201C}Restore previous \
+            content: "Explorer Session Recall couldn\u{2019}t turn off Windows\u{2019} \u{201C}Restore previous \
 folder windows at logon\u{201D} option, so you may get duplicate windows when you sign in. You\u{2019}ll be asked \
-again the next time Explorer Session Restore starts.",
+again the next time Explorer Session Recall starts.",
         },
     }
 }

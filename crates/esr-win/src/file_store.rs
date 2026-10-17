@@ -4,7 +4,7 @@
 //! # Data directory
 //!
 //! Every file lives in one data directory, normally
-//! `%LOCALAPPDATA%\ExplorerSessionRestore` ([`default_data_dir`]). The path is
+//! `%LOCALAPPDATA%\ExplorerSessionRecall` ([`default_data_dir`]). The path is
 //! injected into [`DurableFileStore::open`] so tests never touch the real one.
 //! [`ensure_data_dir`] gives the directory the protected DACL
 //! [`data_dir_sddl`] = `D:P(A;OICI;FA;;;<UserSID>)(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)`
@@ -96,7 +96,7 @@ use windows::Win32::UI::Shell::{FOLDERID_LocalAppData, KF_FLAG_DEFAULT, SHGetKno
 use windows::core::{BOOL, HSTRING, PCWSTR, PWSTR};
 
 /// Name of the data directory under `%LOCALAPPDATA%`.
-pub const DATA_DIR_NAME: &str = "ExplorerSessionRestore";
+pub const DATA_DIR_NAME: &str = "ExplorerSessionRecall";
 
 /// `settings.ini`, written with [`atomic_replace`] like the Session_File.
 pub const SETTINGS_FILE: AtomicFile = AtomicFile::new("settings.ini", "settings.ini.tmp");
@@ -148,7 +148,7 @@ fn io_kind(e: &io::Error) -> IoErrorKind {
 // Data directory and DACL
 // ---------------------------------------------------------------------------
 
-/// `%LOCALAPPDATA%\ExplorerSessionRestore` (`FOLDERID_LocalAppData`). The
+/// `%LOCALAPPDATA%\ExplorerSessionRecall` (`FOLDERID_LocalAppData`). The
 /// directory is not created; see [`ensure_data_dir`].
 pub fn default_data_dir() -> windows::core::Result<PathBuf> {
     // SAFETY: the returned string is copied and then freed with

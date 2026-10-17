@@ -1,4 +1,4 @@
-//! Functional core of Explorer Session Restore.
+//! Functional core of Explorer Session Recall.
 //!
 //! Every input is an [`engine`] `Event` and every output a `Command`; this crate
 //! has no Windows dependencies, so all behavioural logic is testable against the

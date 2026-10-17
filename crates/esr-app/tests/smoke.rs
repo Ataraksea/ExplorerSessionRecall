@@ -55,13 +55,13 @@
 //! to GUI (as in `startup_coexistence.rs`). Next to it, the overrides file of
 //! `esr_app::dev_overrides` (debug builds only) moves every location into the
 //! test root `%LOCALAPPDATA%\ESRTest_<pid>_smoke` (laid out like the real
-//! profile: `Programs\ExplorerSessionRestore`, `ExplorerSessionRestore`,
+//! profile: `Programs\ExplorerSessionRecall`, `ExplorerSessionRecall`,
 //! `Start Menu\Programs`), and names the logon task folder, the Run value,
 //! and the Installed-apps entry `ESRTest_<pid>_smoke`. `--install` copies the
 //! file along with the program, so the installed copy and the `%TEMP%`
 //! uninstall copy use the same test locations. The real data directory, the
 //! real program folder, the real Start-menu shortcut, the real
-//! `\ExplorerSessionRestore` task and the real Installed-apps entry are never
+//! `\ExplorerSessionRecall` task and the real Installed-apps entry are never
 //! touched; the test asserts that before it starts anything. The copies take
 //! the real single-instance mutex, so the test first checks that no instance
 //! runs. [`SmokeInstall`] stops every test instance, removes the test task,

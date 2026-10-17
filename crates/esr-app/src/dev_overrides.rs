@@ -15,18 +15,18 @@
 //! ```
 //!
 //! * `data_dir`: the data directory to use instead of
-//!   `%LOCALAPPDATA%\ExplorerSessionRestore` (Session_File, settings,
+//!   `%LOCALAPPDATA%\ExplorerSessionRecall` (Session_File, settings,
 //!   Activity_Log). Must be an absolute path.
 //! * `startup_name`: the base name of the start-at-sign-in registration that
 //!   a Settings change updates (task folder, root task prefix, and Run value;
 //!   see `esr_win::startup::StartupConfig::with_base_name`) instead of
-//!   `ExplorerSessionRestore`. Must start with [`TEST_NAME_PREFIX`] and
+//!   `ExplorerSessionRecall`. Must start with [`TEST_NAME_PREFIX`] and
 //!   contain only ASCII letters, digits, `_`, and `-`, so it can never name
 //!   the production registration. `--install` / `--uninstall` also use it as
 //!   the name of the Installed-apps entry
 //!   (`HKCU\...\Uninstall\<startup_name>`).
 //! * `install_dir`: the program folder of `--install` / `--uninstall`
-//!   instead of `%LOCALAPPDATA%\Programs\ExplorerSessionRestore`.
+//!   instead of `%LOCALAPPDATA%\Programs\ExplorerSessionRecall`.
 //! * `start_menu_dir`: the folder of the Start-menu shortcut instead of the
 //!   per-user Start menu `Programs` folder.
 //!
@@ -150,12 +150,13 @@ mod tests {
     #[test]
     fn startup_name_must_be_a_test_name() {
         for value in [
+            "ExplorerSessionRecall",
             "ExplorerSessionRestore",
             "ESRTest_",
             "esrtest_1",
             "ESRTest_1\\x",
             "ESRTest_1 x",
-            r"ESRTest_..\ExplorerSessionRestore",
+            r"ESRTest_..\ExplorerSessionRecall",
             "",
         ] {
             let o = DevOverrides::parse(&format!("startup_name={value}"));

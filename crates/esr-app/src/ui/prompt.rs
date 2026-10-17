@@ -32,7 +32,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use windows::core::{BOOL, HRESULT, HSTRING, PCWSTR, s, w};
 
 /// Window title of the prompt and the messages.
-pub const CAPTION: &str = "Explorer Session Restore";
+pub const CAPTION: &str = "Explorer Session Recall";
 /// Command-link id: turn the Builtin_Restore_Option off.
 pub const ID_TURN_OFF: i32 = 100;
 /// Command-link id: keep the Builtin_Restore_Option on.
@@ -40,9 +40,9 @@ pub const ID_KEEP_ON: i32 = 101;
 
 pub const MAIN_INSTRUCTION: &str = "Turn off Windows\u{2019} folder restore at sign-in?";
 pub const CONTENT: &str = "Windows\u{2019} \u{201C}Restore previous folder windows at logon\u{201D} option \
-reopens your folders when you sign in. Explorer Session Restore reopens them too, so you get duplicate windows.";
+reopens your folders when you sign in. Explorer Session Recall reopens them too, so you get duplicate windows.";
 /// Command-link text; the part after `\n` is shown as the link's note.
-pub const TURN_OFF_TEXT: &str = "Turn it off (recommended)\nExplorer Session Restore reopens your windows and \
+pub const TURN_OFF_TEXT: &str = "Turn it off (recommended)\nExplorer Session Recall reopens your windows and \
 tabs. No other File Explorer setting is changed.";
 pub const KEEP_ON_TEXT: &str = "Keep it on\nYou may get duplicate windows. You won\u{2019}t be asked again unless you choose that in Settings.";
 /// Extra line of the `MessageBoxW` fallback, which has no command links.

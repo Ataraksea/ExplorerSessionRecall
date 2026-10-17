@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned to the toolchain the release was developed and tested with.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.99.1'
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build -p esr-app --bin esr
+
+      # The #[ignore] integration tests drive real File Explorer windows and
+      # are not run on CI; `cargo test` skips them by default.
+      - name: Test
+        run: cargo test -p esr-core -p esr-sim
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings

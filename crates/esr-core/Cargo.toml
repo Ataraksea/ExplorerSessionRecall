@@ -1,6 +1,6 @@
 [package]
 name = "esr-core"
-description = "Pure functional core of Explorer Session Restore (no Windows dependencies)."
+description = "Pure functional core of Explorer Session Recall (no Windows dependencies)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
