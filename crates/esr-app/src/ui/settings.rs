@@ -38,15 +38,19 @@ use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Controls::{
     BST_CHECKED, BST_UNCHECKED, CheckDlgButton, IsDlgButtonChecked,
 };
-use windows::Win32::UI::HiDpi::SystemParametersInfoForDpi;
+use windows::Win32::UI::HiDpi::{
+    GetDpiForWindow, GetSystemMetricsForDpi, SystemParametersInfoForDpi,
+};
 use windows::Win32::UI::Input::KeyboardAndMouse::{EnableWindow, GetFocus};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateDialogIndirectParamW, DLGTEMPLATE, DestroyWindow, GetDlgItem, GetWindowLongPtrW,
-    IsIconic, NONCLIENTMETRICSW, SPI_GETNONCLIENTMETRICS, SW_RESTORE, SW_SHOW, SendMessageW,
-    SetDlgItemTextW, SetForegroundWindow, SetWindowLongPtrW, ShowWindow, WINDOW_LONG_PTR_INDEX,
-    WM_COMMAND, WM_DESTROY, WM_INITDIALOG, WM_NEXTDLGCTL,
+    CreateDialogIndirectParamW, DLGTEMPLATE, DestroyIcon, DestroyWindow, GetDlgItem,
+    GetWindowLongPtrW, HICON, ICON_BIG, ICON_SMALL, IMAGE_ICON, IsIconic, LR_DEFAULTCOLOR,
+    LoadImageW, NONCLIENTMETRICSW, SM_CXICON, SM_CXSMICON, SM_CYICON, SM_CYSMICON,
+    SPI_GETNONCLIENTMETRICS, SW_RESTORE, SW_SHOW, SendMessageW, SetDlgItemTextW,
+    SetForegroundWindow, SetWindowLongPtrW, ShowWindow, WINDOW_LONG_PTR_INDEX, WM_COMMAND,
+    WM_DESTROY, WM_INITDIALOG, WM_NEXTDLGCTL, WM_SETICON,
 };
-use windows::core::HSTRING;
+use windows::core::{HSTRING, PCWSTR};
 
 use crate::ports::SharedSink;
 
@@ -465,6 +469,9 @@ pub fn aligned(words: &[u16]) -> Vec<u32> {
 // Native dialog
 // ---------------------------------------------------------------------------
 
+/// Resource id of the application icon (`1 ICON` in build.rs).
+pub const APP_ICON_ID: u16 = 1;
+
 /// `DWLP_USER` = `DWLP_MSGRESULT` + sizeof(LRESULT) + sizeof(DLGPROC).
 const DWLP_USER: WINDOW_LONG_PTR_INDEX =
     WINDOW_LONG_PTR_INDEX((2 * std::mem::size_of::<isize>()) as i32);
@@ -668,6 +675,59 @@ fn apply_dynamic_view(hwnd: HWND, v: &SettingsView) {
     }
 }
 
+/// Sets the title-bar / taskbar / Alt+Tab icons from the module's icon
+/// resource at the window's DPI. Best effort: executables without the
+/// resource (test harnesses, builds without rc.exe) keep the default icon.
+fn set_app_icon(hwnd: HWND) {
+    // SAFETY: loading this module's own resource and sending messages to this
+    // thread's dialog; `clear_app_icon` destroys the handles in WM_DESTROY.
+    unsafe {
+        let Ok(hinstance) = GetModuleHandleW(None) else {
+            return;
+        };
+        let dpi = GetDpiForWindow(hwnd);
+        for (kind, cx, cy) in [
+            (ICON_BIG, SM_CXICON, SM_CYICON),
+            (ICON_SMALL, SM_CXSMICON, SM_CYSMICON),
+        ] {
+            if let Ok(icon) = LoadImageW(
+                Some(hinstance.into()),
+                PCWSTR(APP_ICON_ID as usize as *const u16),
+                IMAGE_ICON,
+                GetSystemMetricsForDpi(cx, dpi),
+                GetSystemMetricsForDpi(cy, dpi),
+                LR_DEFAULTCOLOR,
+            ) {
+                SendMessageW(
+                    hwnd,
+                    WM_SETICON,
+                    Some(WPARAM(kind as usize)),
+                    Some(LPARAM(icon.0 as isize)),
+                );
+            }
+        }
+    }
+}
+
+/// Detaches and destroys the icons set by `set_app_icon`.
+fn clear_app_icon(hwnd: HWND) {
+    for kind in [ICON_BIG, ICON_SMALL] {
+        // SAFETY: the previous icon returned by WM_SETICON is one this dialog
+        // loaded (not shared); it is no longer referenced once replaced by 0.
+        unsafe {
+            let prev = SendMessageW(
+                hwnd,
+                WM_SETICON,
+                Some(WPARAM(kind as usize)),
+                Some(LPARAM(0)),
+            );
+            if prev.0 != 0 {
+                let _ = DestroyIcon(HICON(prev.0 as _));
+            }
+        }
+    }
+}
+
 unsafe extern "system" fn dialog_proc(
     hwnd: HWND,
     msg: u32,
@@ -685,6 +745,7 @@ unsafe extern "system" fn dialog_proc(
                 // SAFETY: storing the adopted pointer in this dialog's slot.
                 unsafe { SetWindowLongPtrW(hwnd, DWLP_USER, raw as isize) };
                 apply_view(hwnd, &view(&settings));
+                set_app_icon(hwnd);
             }
             1 // let the dialog manager focus the first tab stop
         }
@@ -716,6 +777,7 @@ unsafe extern "system" fn dialog_proc(
             }
         }
         WM_DESTROY => {
+            clear_app_icon(hwnd);
             // SAFETY: take back ownership exactly once; the slot is cleared first.
             let raw = unsafe { SetWindowLongPtrW(hwnd, DWLP_USER, 0) } as *mut DialogState;
             if !raw.is_null() {

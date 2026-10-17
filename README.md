@@ -1,4 +1,4 @@
-# Explorer Session Recall
+# <img src="assets/icon-256.png" alt="" width="96" height="96" align="middle"> Explorer Session Recall
 
 Your File Explorer windows and tabs, back where you left them. Plus: folders open as tabs instead of piling up new windows.
 
@@ -93,6 +93,8 @@ powershell -ExecutionPolicy Bypass -File installer\build.ps1
 ```
 
 This writes `ExplorerSessionRecall-Setup-<version>.exe`, `esr-<version>-x64.exe`, and `SHA256SUMS.txt` to `dist\`.
+
+The icon's source is `assets\icon.svg`. `assets\icon.ico` and `assets\icon-256.png` are generated from it by `powershell -ExecutionPolicy Bypass -File assets\make-icon.ps1` and committed, so the build needs no image tools.
 
 ## Code signing policy
 

@@ -10,7 +10,7 @@
 ; Build with installer\build.ps1 (or: ISCC /DAppVersion=x.y.z /DSourceExe=<esr.exe> ExplorerSessionRecall.iss).
 
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define AppVersion "1.0.1"
 #endif
 #ifndef SourceExe
   #define SourceExe "..\target\release\esr.exe"
@@ -35,6 +35,7 @@ DisableProgramGroupPage=yes
 CloseApplications=no
 ShowLanguageDialog=no
 LicenseFile=..\LICENSE-MIT
+SetupIconFile=..\assets\icon.ico
 OutputDir=..\dist
 OutputBaseFilename=ExplorerSessionRecall-Setup-{#AppVersion}
 Compression=lzma2

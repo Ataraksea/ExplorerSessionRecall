@@ -1974,7 +1974,7 @@ mod tests {
     }
 
     /// Creates a `.lnk` in a temp directory (not the Start menu) and reads the
-    /// target and AUMID back.
+    /// target, icon location, and AUMID back.
     #[test]
     fn shortcut_carries_target_and_aumid() {
         let dir = TestDir::new("shortcut");
@@ -2003,6 +2003,14 @@ mod tests {
             link.GetPath(&mut buf, std::ptr::null_mut(), 0).unwrap();
             let len = buf.iter().position(|&c| c == 0).unwrap();
             assert!(same_path(Path::new(&String::from_utf16_lossy(&buf[..len])), &target));
+
+            // The shortcut's icon is esr.exe's first icon (`<exe>,0`).
+            let mut icon_buf = [0u16; 1024];
+            let mut index = -1i32;
+            link.GetIconLocation(&mut icon_buf, &mut index).unwrap();
+            let len = icon_buf.iter().position(|&c| c == 0).unwrap();
+            assert!(same_path(Path::new(&String::from_utf16_lossy(&icon_buf[..len])), &target));
+            assert_eq!(index, 0);
 
             let store: IPropertyStore = link.cast().unwrap();
             let mut value = store.GetValue(&PKEY_APP_USER_MODEL_ID).unwrap();

@@ -13,13 +13,15 @@
 //! `ui::prompt`) instead of importing it, so those other executables still
 //! load without the Common Controls 6 manifest.
 //!
-//! The VERSIONINFO resource is compiled from a generated `.rc` file with the
+//! The application icon (`ICON` 1, `assets\icon.ico` at the workspace root;
+//! the lowest id, so the shell, taskbar, and Alt+Tab use it) and the
+//! VERSIONINFO resource are compiled from a generated `.rc` file with the
 //! Windows SDK resource compiler (`rc.exe`, from `RC`, `PATH`, or the newest
 //! Windows Kits 10 directory) and linked into the `esr` binary only
 //! (`rustc-link-arg-bins`). The `.rc` has no manifest resource, so the
 //! linker's embedded manifest stays the only one. A release build fails if
-//! rc.exe is missing, because release artifacts must carry version info;
-//! other builds print a warning and skip it.
+//! rc.exe or the icon is missing, because release artifacts must carry
+//! them; other builds print a warning and skip both.
 
 use std::env;
 use std::fs;
@@ -44,17 +46,34 @@ fn main() {
     println!("cargo:rustc-link-arg=/MANIFESTINPUT:{}", manifest.display());
     println!("cargo:rustc-link-arg=/MANIFESTUAC:NO");
 
+    // crates/esr-app -> workspace root.
+    let icon = manifest_dir
+        .ancestors()
+        .nth(2)
+        .expect("workspace root")
+        .join("assets")
+        .join("icon.ico");
+    println!("cargo:rerun-if-changed={}", icon.display());
+
     let release = env::var("PROFILE").is_ok_and(|p| p == "release");
-    match compile_version_resource() {
+    match compile_version_resource(&icon) {
         Ok(res) => println!("cargo:rustc-link-arg-bins={}", res.display()),
-        Err(e) if release => panic!("esr.exe VERSIONINFO resource: {e}"),
-        Err(e) => println!("cargo:warning=skipping the VERSIONINFO resource: {e}"),
+        Err(e) if release => panic!("esr.exe icon and VERSIONINFO resources: {e}"),
+        Err(e) => println!("cargo:warning=skipping the icon and VERSIONINFO resources: {e}"),
     }
 }
 
-/// Writes `$OUT_DIR\esr.rc`, compiles it to `$OUT_DIR\esr.res`, and returns that path.
-fn compile_version_resource() -> Result<PathBuf, String> {
+/// Writes `$OUT_DIR\esr.rc` (ICON 1 + VERSIONINFO), compiles it to
+/// `$OUT_DIR\esr.res`, and returns that path.
+fn compile_version_resource(icon: &Path) -> Result<PathBuf, String> {
     let out_dir = PathBuf::from(env::var("OUT_DIR").map_err(|e| format!("OUT_DIR: {e}"))?);
+    if !icon.is_file() {
+        return Err(format!("icon {} not found", icon.display()));
+    }
+    let icon_path = icon.to_str().filter(|p| p.is_ascii()).ok_or_else(|| {
+        // rc.exe reads the .rc in the ANSI code page; refuse a path it could mis-decode.
+        format!("icon path must be ASCII for rc.exe: {}", icon.display())
+    })?;
     let part = |name: &str| -> Result<u32, String> {
         env::var(name)
             .map_err(|e| format!("{name}: {e}"))?
@@ -69,7 +88,8 @@ fn compile_version_resource() -> Result<PathBuf, String> {
 
     let rc_file = out_dir.join("esr.rc");
     let res_file = out_dir.join("esr.res");
-    fs::write(&rc_file, version_rc(major, minor, patch))
+    let rc_source = format!("{}{}", icon_rc(icon_path), version_rc(major, minor, patch));
+    fs::write(&rc_file, rc_source)
         .map_err(|e| format!("cannot write {}: {e}", rc_file.display()))?;
 
     let rc = find_rc().ok_or("rc.exe (Windows SDK resource compiler) not found")?;
@@ -86,7 +106,14 @@ fn compile_version_resource() -> Result<PathBuf, String> {
     Ok(res_file)
 }
 
-/// The `.rc` source: numeric constants only, so no `#include` is needed.
+/// `1 ICON "<path>"`: an `.rc` string literal, so every `\` is doubled; quotes
+/// keep a path with spaces intact (`"` cannot occur in a Windows path).
+fn icon_rc(path: &str) -> String {
+    format!("1 ICON \"{}\"\n", path.replace('\\', "\\\\"))
+}
+
+/// The VERSIONINFO part of the `.rc` source: numeric constants only, so no
+/// `#include` is needed.
 fn version_rc(major: u32, minor: u32, patch: u32) -> String {
     let comma = format!("{major},{minor},{patch},0");
     let dotted = format!("{major}.{minor}.{patch}.0");
