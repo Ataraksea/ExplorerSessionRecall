@@ -1,0 +1,36 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/esr-core",
+    "crates/esr-win",
+    "crates/esr-app",
+    "crates/esr-sim",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+publish = false
+
+# Third-party versions are pinned exactly (`=x.y.z`). Any new dependency must
+# also be added to the allow-list in `deny.toml`.
+[workspace.dependencies]
+windows = { version = "=0.62.2", default-features = false, features = ["std"] }
+# Direct dependency only because `#[windows::core::implement]` expands to `::windows_core` paths.
+windows-core = { version = "=0.62.2", default-features = false, features = ["std"] }
+proptest = "=1.12.0"
+proptest-state-machine = "=0.9.0"
+
+esr-core = { path = "crates/esr-core" }
+esr-win = { path = "crates/esr-win" }
+esr-app = { path = "crates/esr-app" }
+esr-sim = { path = "crates/esr-sim" }
+
+[profile.release]
+# A panic is logged by the top-level guard (esr-app::runtime) and then aborts.
+# The persisted Session_File state already handles abrupt termination (Req 3.8, 4.7).
+panic = "abort"
+lto = true
+codegen-units = 1

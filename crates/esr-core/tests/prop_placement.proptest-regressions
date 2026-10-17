@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 1a10f2c68db76b0e1734b30b5c8da1dc85f7c7324dccf362951a35deb5523bdb # shrinks to (ds, saved, targeted) = ([Display { device: "\\\\.\\DISPLAY4", monitor: Rect { left: 2147483647, top: 2147483637, right: 183, bottom: 9787 }, work: Rect { left: 2147483647, top: 2147483637, right: 183, bottom: 9787 }, primary: true }], Placement { state: Normal, restored: Rect { left: 2147483647, top: 2147483637, right: -2147483648, bottom: 2147483638 }, display: DisplayRef { device: "\\\\.\\DISPLAY4", monitor: Rect { left: 2147483647, top: 2147483637, right: 183, bottom: 9787 } } }, false)

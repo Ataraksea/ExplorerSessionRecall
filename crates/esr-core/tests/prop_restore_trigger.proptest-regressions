@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc bd9f46afb87bd8c82034e0cd71c5ddb7dcda9ebe04138f968d906590eebb3cbb # shrinks to (initial_state, transitions, seen_counter) = (Model { initial: Absent, initial_enabled: false, file: Absent, enabled: false, open: 0, restorations: 0, consumptions: 0, last: Nothing }, [Launch { target: None, second: None }, Reboot, Reboot, Launch { target: None, second: None }], None)

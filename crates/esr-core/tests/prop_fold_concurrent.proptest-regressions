@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc b19307e74fbb429e4f7f6ece8a0d13c9bfac47542febd6543041debdbe77366e # shrinks to sc = Scenario { windows: [WinSpec { tabs: [1], active: 0 }], burst: FoldBurst { candidates: [BurstCandidate { slot: 0, spelling: 0, selection: [], foreground: None, gap_ms: 0, first_navigation_ms: 20 }, BurstCandidate { slot: 1, spelling: 0, selection: [], foreground: None, gap_ms: 0, first_navigation_ms: 20 }] }, registration_lag_ms: 0 }
+cc 20a914f56f344693305ea35773fd01e39a85c38ff9500a8cd22bf804f1eec3b5 # shrinks to sc = Scenario { windows: [WinSpec { tabs: [5], active: 0 }], burst: FoldBurst { candidates: [BurstCandidate { slot: 2, spelling: 0, selection: [], foreground: None, gap_ms: 0, first_navigation_ms: 20 }, BurstCandidate { slot: 0, spelling: 0, selection: [], foreground: None, gap_ms: 0, first_navigation_ms: 20 }, BurstCandidate { slot: 2, spelling: 0, selection: [], foreground: None, gap_ms: 0, first_navigation_ms: 20 }] }, registration_lag_ms: 0 }
+cc b90bc11f1a75b4551ca16782d7c9559b280e9f20e25f1714e9706fe19c818b97 # shrinks to sc = Scenario { windows: [WinSpec { tabs: [2], active: 0 }, WinSpec { tabs: [5], active: 0 }], burst: FoldBurst { candidates: [BurstCandidate { slot: 1, spelling: 0, selection: [], foreground: None, gap_ms: 0, first_navigation_ms: 366 }, BurstCandidate { slot: 1, spelling: 0, selection: [], foreground: None, gap_ms: 38, first_navigation_ms: 20 }, BurstCandidate { slot: 3, spelling: 0, selection: [], foreground: None, gap_ms: 118, first_navigation_ms: 20 }, BurstCandidate { slot: 3, spelling: 0, selection: [], foreground: None, gap_ms: 0, first_navigation_ms: 395 }] }, registration_lag_ms: 0 }

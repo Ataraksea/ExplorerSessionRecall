@@ -1,0 +1,15 @@
+[package]
+name = "esr-sim"
+description = "Deterministic simulated File Explorer for testing esr-core (test-only)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Used only as a dev-dependency; never linked into esr.exe.
+[dependencies]
+esr-core.workspace = true
+esr-app.workspace = true
+# Operation-sequence strategies for the property tests (test-only crate).
+proptest.workspace = true

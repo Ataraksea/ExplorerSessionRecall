@@ -1,0 +1,264 @@
+﻿# cargo-deny configuration for Explorer Session Restore.
+#
+# Req 11.2: no session data may leave the computer, so no networking crate may
+# be linked. `[bans].allow` is an explicit allow-list: any crate that is not
+# listed here fails `cargo deny check bans`. Adding a dependency therefore
+# requires a deliberate edit here (and an exact `=x.y.z` pin in Cargo.toml).
+# `[bans].deny` additionally names well-known networking crates so the intent
+# is explicit even if someone loosens the allow-list.
+#
+# The Windows bindings could still reach the network through API features
+# (WinSock, WinHTTP, WinINet, Windows.Networking, Windows.Web, ...). The
+# `[[bans.features]]` entries therefore allow-list the exact feature set of
+# `windows` (any added feature fails the check until it is listed here) and
+# deny every networking feature of `windows` and `windows-sys` by name.
+#
+# Run (task 16.7; also `cargo test -p esr-app --test smoke -- --ignored
+# cargo_deny`): cargo deny check
+# Offline (no advisory database fetch): cargo deny check bans licenses sources
+# Tested with cargo-deny 0.20.2:
+#   cargo install cargo-deny --locked --version 0.20.2
+
+[graph]
+targets = ["x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc"]
+all-features = false
+
+[advisories]
+version = 2
+yanked = "deny"
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Unicode-3.0",
+]
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+# Only these crates may appear in the dependency graph.
+allow = [
+    # workspace
+    { name = "esr-app" },
+    { name = "esr-core" },
+    { name = "esr-sim" },
+    { name = "esr-win" },
+    # Windows bindings
+    { name = "windows" },
+    { name = "windows-collections" },
+    { name = "windows-core" },
+    { name = "windows-future" },
+    { name = "windows-implement" },
+    { name = "windows-interface" },
+    { name = "windows-link" },
+    { name = "windows-numerics" },
+    { name = "windows-result" },
+    { name = "windows-strings" },
+    { name = "windows-sys" },
+    { name = "windows-threading" },
+    # proc-macro support for windows-implement / windows-interface
+    { name = "proc-macro2" },
+    { name = "quote" },
+    { name = "syn" },
+    { name = "unicode-ident" },
+    # test-only: proptest and proptest-state-machine
+    { name = "autocfg" },
+    { name = "bit-set" },
+    { name = "bit-vec" },
+    { name = "bitflags" },
+    { name = "cfg-if" },
+    { name = "chacha20" },
+    { name = "core_detect" },
+    { name = "cpufeatures" },
+    { name = "errno" },
+    { name = "fastrand" },
+    { name = "fnv" },
+    { name = "getrandom" },
+    { name = "libc" },
+    { name = "linux-raw-sys" },
+    { name = "num-traits" },
+    { name = "once_cell" },
+    { name = "proptest" },
+    { name = "proptest-state-machine" },
+    { name = "quick-error" },
+    { name = "r-efi" },
+    { name = "rand" },
+    { name = "rand_core" },
+    { name = "rand_xorshift" },
+    { name = "regex-syntax" },
+    { name = "rustix" },
+    { name = "rusty-fork" },
+    { name = "tempfile" },
+    { name = "unarray" },
+    { name = "wait-timeout" },
+]
+
+# Networking crates that must never be linked (Req 11.2).
+deny = [
+    { name = "actix-web" },
+    { name = "async-io" },
+    { name = "async-std" },
+    { name = "attohttpc" },
+    { name = "axum" },
+    { name = "curl" },
+    { name = "curl-sys" },
+    { name = "h2" },
+    { name = "h3" },
+    { name = "hickory-resolver" },
+    { name = "http" },
+    { name = "hyper" },
+    { name = "hyper-util" },
+    { name = "isahc" },
+    { name = "minreq" },
+    { name = "mio" },
+    { name = "native-tls" },
+    { name = "openssl" },
+    { name = "openssl-sys" },
+    { name = "quinn" },
+    { name = "reqwest" },
+    { name = "rustls" },
+    { name = "schannel" },
+    { name = "smol" },
+    { name = "socket2" },
+    { name = "surf" },
+    { name = "tiny_http" },
+    { name = "tokio" },
+    { name = "tonic" },
+    { name = "trust-dns-resolver" },
+    { name = "tungstenite" },
+    { name = "ureq" },
+    { name = "warp" },
+    { name = "websocket" },
+]
+
+# The exact feature set of the Windows bindings (normal and test-only
+# dependencies of all crates together), and the networking features that must
+# never be enabled (Req 11.2). `exact = true`: a feature that is enabled but
+# not listed, or listed but no longer enabled, fails the check.
+[[bans.features]]
+crate = "windows"
+exact = true
+allow = [
+    "Data",
+    "Data_Xml",
+    "Data_Xml_Dom",
+    "Foundation",
+    "Graphics",
+    "Graphics_Capture",
+    "Graphics_DirectX",
+    "Graphics_DirectX_Direct3D11",
+    "UI",
+    "UI_Notifications",
+    "Wdk",
+    "Wdk_Storage",
+    "Wdk_Storage_FileSystem",
+    "Wdk_System",
+    "Wdk_System_SystemServices",
+    "Win32",
+    "Win32_Foundation",
+    "Win32_Graphics",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D11",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_Graphics_Gdi",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage",
+    "Win32_Storage_FileSystem",
+    "Win32_System",
+    "Win32_System_Com",
+    "Win32_System_Com_Marshal",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_EventLog",
+    "Win32_System_IO",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Ole",
+    "Win32_System_Performance",
+    "Win32_System_Pipes",
+    "Win32_System_ProcessStatus",
+    "Win32_System_Registry",
+    "Win32_System_RemoteDesktop",
+    "Win32_System_Shutdown",
+    "Win32_System_SystemInformation",
+    "Win32_System_SystemServices",
+    "Win32_System_TaskScheduler",
+    "Win32_System_Threading",
+    "Win32_System_Variant",
+    "Win32_System_WinRT",
+    "Win32_System_WinRT_Direct3D11",
+    "Win32_System_WinRT_Graphics",
+    "Win32_System_WinRT_Graphics_Capture",
+    "Win32_UI",
+    "Win32_UI_Accessibility",
+    "Win32_UI_Controls",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
+    "Win32_UI_Shell_PropertiesSystem",
+    "Win32_UI_WindowsAndMessaging",
+    "std",
+]
+deny = [
+    "Devices_WiFi",
+    "Devices_WiFiDirect",
+    "Networking",
+    "Networking_BackgroundTransfer",
+    "Networking_Connectivity",
+    "Networking_Sockets",
+    "Networking_Vpn",
+    "Security_Authentication_Web",
+    "UI_WebUI",
+    "Wdk_NetworkManagement",
+    "Web",
+    "Web_Http",
+    "Web_Syndication",
+    "Web_UI",
+    "Win32_Networking",
+    "Win32_Networking_BackgroundIntelligentTransferService",
+    "Win32_Networking_HttpServer",
+    "Win32_Networking_Ldap",
+    "Win32_Networking_WebSocket",
+    "Win32_Networking_WinHttp",
+    "Win32_Networking_WinInet",
+    "Win32_Networking_WinSock",
+    "Win32_Networking_WindowsWebServices",
+    "Win32_NetworkManagement",
+    "Win32_NetworkManagement_Dns",
+    "Win32_NetworkManagement_IpHelper",
+    "Win32_NetworkManagement_WNet",
+    "Win32_NetworkManagement_WebDav",
+    "Win32_System_HostComputeNetwork",
+    "Win32_Web",
+    "Win32_Web_InternetExplorer",
+]
+
+# `windows-sys` comes in only through test-only crates (tempfile).
+[[bans.features]]
+crate = "windows-sys"
+deny = [
+    "Win32_Networking",
+    "Win32_Networking_WinHttp",
+    "Win32_Networking_WinInet",
+    "Win32_Networking_WinSock",
+    "Win32_NetworkManagement",
+    "Win32_NetworkManagement_IpHelper",
+    "Win32_Web",
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc d672cc62abdab2b617e614089342a433a48a53cd7b339a945634bf53eaf86463 # shrinks to c = Case { visual: [ScannedTab { tab: TabKey { hwnd: 65537, seq: 1 }, match_names: [W"F2", W"C:\\F2"] }, ScannedTab { tab: TabKey { hwnd: 65538, seq: 2 }, match_names: [W"F1", W"C:\\F1"] }, ScannedTab { tab: TabKey { hwnd: 65539, seq: 3 }, match_names: [W"F1", W"C:\\F1"] }], prev: [TabKey { hwnd: 65539, seq: 3 }, TabKey { hwnd: 65537, seq: 1 }, TabKey { hwnd: 65538, seq: 2 }], scanned: [ScannedTab { tab: TabKey { hwnd: 65537, seq: 1 }, match_names: [W"F2", W"C:\\F2"] }, ScannedTab { tab: TabKey { hwnd: 65538, seq: 2 }, match_names: [W"F1", W"C:\\F1"] }, ScannedTab { tab: TabKey { hwnd: 65539, seq: 3 }, match_names: [W"F1", W"C:\\F1"] }], strip: Some(TabStripState { names: [W"F2", W"F1"], selected: None }), strip_src: [Some(0), Some(2)], full: false }

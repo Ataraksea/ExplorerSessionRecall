@@ -1,0 +1,17 @@
+[package]
+name = "esr-core"
+description = "Pure functional core of Explorer Session Restore (no Windows dependencies)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+proptest.workspace = true
+proptest-state-machine.workspace = true
+# Test-only simulated Explorer. This dev-dependency cycle is intentional:
+# integration tests under `tests/` link the same `esr-core` that `esr-sim` uses.
+esr-sim.workspace = true

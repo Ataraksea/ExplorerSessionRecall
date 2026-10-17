@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc d5e2987d0c7fe9088818c95a478f856c1607ed66457d7b8ff36ad314c8aed6b9 # shrinks to sc = Scenario { windows: [([0, 0, 0, 0], 0, Normal, false)], activation: [0], requested: 10, selection: [ItemId([155, 146, 219]), ItemId([217, 218])] }

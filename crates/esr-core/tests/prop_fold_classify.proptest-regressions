@@ -1,0 +1,12 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc f37bf2f9507fbbef90a5df06302672672d39bc2f33aad647ca3a33c188b468ce # shrinks to s = Scenario { enabled: true, initial: 0, restoring: false, heuristic: Holds, arrivals: [Arrival { bypass: true, on_desktop: None, foreground: (0, 0), detach: None, pid: 1 }, Arrival { bypass: false, on_desktop: None, foreground: (0, 0), detach: None, pid: 1 }] }
+cc c4d7658cf1b2dc7046189e9da081e0d15362c088f64cf9d9bc8bf50579e8c71b # shrinks to s = OneSignal { enabled: true, tracked: 1, desktop: Unknown, restoration: false, builtin: true, bypass: true, foreground: None, detach: None }
+cc fda73b4554d990cf980fda28dadeb458def253b1e1fede051d93a0ca05ceddbb # shrinks to s = Scenario { enabled: true, initial: 1, restoring: true, heuristic: Off, arrivals: [Arrival { bypass: false, on_desktop: None, foreground: (0, 0), detach: None, pid: 1 }] }
+cc 705a88d28c189e14f89ca84d328ab37e1384d67f25f63ceb87c87a53b577cbb4 # shrinks to s = OneSignal { enabled: true, tracked: 1, desktop: Unknown, restoration: true, builtin: true, bypass: true, foreground: None, detach: None }
+cc b35b8bcdef427a91daeb247ee897a472f3a30570c487805bac4e6d920237fe2c # shrinks to s = Scenario { enabled: true, initial: 0, restoring: false, heuristic: NoPersist, arrivals: [Arrival { bypass: true, on_desktop: None, foreground: (0, 0), detach: None, pid: 1 }, Arrival { bypass: false, on_desktop: None, foreground: (0, 0), detach: Some((0, 6, false)), pid: 1 }] }
+cc 6e2156c7ef4494fb80898f537d15f8341be33baab51a6c18057b22c87c4d70a2 # shrinks to s = OneSignal { enabled: true, tracked: 1, desktop: Unknown, restoration: false, builtin: false, bypass: false, foreground: None, detach: Before { dt: 0, idx: 0, stray_source: false } }
