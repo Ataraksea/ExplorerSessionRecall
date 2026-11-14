@@ -43,7 +43,7 @@ Releases are not code-signed yet (see [Code signing policy](#code-signing-policy
 
 There is nothing to do: the app has no window and starts automatically when you sign in.
 
-To open **Settings**, start **Explorer Session Recall** from the Start menu again. Settings has these options:
+The app runs entirely in the background. You can change the enabled features by running **Explorer Session Recall** from the Start menu:
 
 - **Restore my File Explorer session**: turn session restore on or off.
 - **Start when I sign in**: start the app automatically when you sign in to Windows.
@@ -70,7 +70,6 @@ Everything stays on your computer. The saved session, settings, and activity log
 - **Restart the app.** Open Settings (start Explorer Session Recall from the Start menu), click **Exit Explorer Session Recall**, then start it from the Start menu again.
 - **Setup reported an error.** Exit the app from its Settings if it is running and run Setup again. Error code 2 means your version of Windows is not supported (see [Requirements](#requirements)).
 - **Setup finished "with warnings".** The app is installed, but a step listed in the message didn't finish (for example the Start menu shortcut). If moving your saved session from the old build failed, the message names the old folder; copy `session.esr` and `settings.ini` from there into `%LOCALAPPDATA%\ExplorerSessionRecall` after exiting the app from its Settings.
-- **Still stuck?** [Open an issue](https://github.com/Ataraksea/ExplorerSessionRecall/issues) and attach the activity log if you can. It lists folder names, so check it first if those are private.
 
 ## Known limitations
 
@@ -95,17 +94,6 @@ powershell -ExecutionPolicy Bypass -File installer\build.ps1
 This writes `ExplorerSessionRecall-Setup-<version>.exe`, `esr-<version>-x64.exe`, and `SHA256SUMS.txt` to `dist\`.
 
 The icon's source is `assets\icon.svg`. `assets\icon.ico` and `assets\icon-256.png` are generated from it by `powershell -ExecutionPolicy Bypass -File assets\make-icon.ps1` and committed, so the build needs no image tools.
-
-## Code signing policy
-
-Code signing for this project is being applied for with SignPath Foundation; until then, releases are unsigned.
-
-Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
-
-- Committers and reviewers: [Ataraksea](https://github.com/Ataraksea)
-- Approvers: [Ataraksea](https://github.com/Ataraksea)
-
-Privacy: This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.
 
 ## License
 
