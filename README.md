@@ -33,7 +33,7 @@ Windows 11 22H2 or later (build 22621.675 or newer, the first build with File Ex
 
 It installs for your user account only. You don't need administrator rights, and there is no UAC prompt. When Setup finishes, the app is already running in the background.
 
-Releases are not code-signed yet (see [Code signing policy](#code-signing-policy)), so Windows SmartScreen may show "Windows protected your PC". Click **More info**, then **Run anyway**.
+Releases are not code-signed, so if you have Windows SmartScreen enabled, it may show "Windows protected your PC". Click **More info**, then **Run anyway**.
 
 **Upgrading from the old "Explorer Session Restore" build?** Just run Setup. It stops the old version, removes it, and moves your saved session and settings over automatically.
 
