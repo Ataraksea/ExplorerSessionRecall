@@ -41,8 +41,6 @@ Releases are not code-signed, so if you have Windows SmartScreen enabled, it may
 
 ## Using it
 
-There is nothing to do: the app has no window and starts automatically when you sign in.
-
 The app runs entirely in the background. You can change the enabled features by running **Explorer Session Recall** from the Start menu:
 
 - **Restore my File Explorer session**: turn session restore on or off.
